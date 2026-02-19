@@ -8,7 +8,7 @@ owners:
   - name: Chris Robertson
 complexity: HIGH
 maturity: 2
-tags: [platform, orchestration, openhands, multi-project, agents]
+tags: [platform, orchestration, openhands, multi-project, agents, templates, notifications, webhooks, configs, github-actions]
 ---
 
 # Spec-MAS v2 — End-to-End Definition
@@ -28,13 +28,15 @@ Spec-MAS v2 is a ground-up evolution of the Spec-MAS framework. It replaces Lang
 1. **OpenHands as orchestration core** — use OpenHands local Docker environments for agent execution, task routing, and workflow management, replacing LangGraph.
 2. **Multi-agent CLI support** — first-class support for Claude Code, Codex, and Gemini CLI as interchangeable implementation agents.
 3. **Conversational spec authoring** — Web UI where users create and refine specs through guided conversation, producing v3-compliant Markdown specs, backed by a rich template library.
-4. **NPM CLI for local workflows** — `specmas` CLI triggers validation, runs, agent management, and project operations from any developer's terminal.
-5. **Configurable workflows and gates** — YAML-defined workflow pipelines and gate configurations, editable via UI or file. Default pipeline matches current Spec-MAS flow.
-6. **Multi-project parallel execution** — run multiple projects simultaneously with independent state, agent assignments, and dashboards.
-7. **GitHub Issues as work queue** — all plans decompose into GitHub Issues; all agent-to-agent communication happens via issue comments, file attachments, and label transitions.
-8. **GitHub Actions integration** — workflows, validations, and agent runs can be triggered from GitHub Actions and report results back to PRs.
-9. **Artifact management** — all run outputs (reports, logs, test results, patches) stored, browsable, and downloadable from both Web UI and CLI.
-10. **Git-based rollback and recovery** — frequent commits and branch-per-task strategy enable automatic detection of repeated failures, disposal of bad work, and clean restarts.
+4. **NPM CLI for local workflows** — `specmas` CLI triggers validation, runs, agent management, artifact access, and project operations from any developer's terminal.
+5. **Project-level configuration** — per-project config files for OpenHands runtime, agent routing, workflows/gates, secrets references, and integrations.
+6. **Configurable workflows and gates** — YAML-defined workflow pipelines and gate configurations, editable via UI or file. Default pipeline matches current Spec-MAS flow.
+7. **Multi-project parallel execution** — run multiple projects simultaneously with independent state, agent assignments, and dashboards.
+8. **GitHub Issues as work queue** — all plans decompose into GitHub Issues; all agent-to-agent communication happens via issue comments, file attachments, and label transitions.
+9. **Notifications and webhooks** — event-driven notifications to Slack/email/custom endpoints, and webhook triggers for external automations.
+10. **GitHub Actions integration** — workflows, validations, and agent runs can be triggered from GitHub Actions and report results back to PRs.
+11. **Artifact management** — all run outputs (reports, logs, test results, patches) stored, browsable, and downloadable from both Web UI and CLI.
+12. **Git-based rollback and recovery** — frequent commits and branch-per-task strategy enable automatic detection of repeated failures, disposal of bad work, and clean restarts.
 
 ### Non-Goals
 
@@ -43,7 +45,7 @@ Spec-MAS v2 is a ground-up evolution of the Spec-MAS framework. It replaces Lang
 - Not an LLM training or fine-tuning platform
 - Not a code editor or IDE (agents use their own CLI environments)
 - No vendor lock-in to a single LLM provider
-- **No cost tracking or budget management in v2** — token usage and dollar cost tracking per agent, per task, per project is deferred to a future release. v2 relies on each LLM provider's native usage dashboards for cost visibility.
+- **No cost tracking, budget management, or agent performance analytics in v2** — token usage, dollar cost tracking per agent/task/project, and performance scoring/leaderboards are deferred to a future release. v2 relies on each LLM provider's native usage dashboards and the local run logs/artifacts for troubleshooting.
 - **No agent performance routing in v2** — smart routing based on historical agent performance data (success rates, speed, cost efficiency per task type) is deferred. v2 uses explicit configuration for agent assignment; data-driven routing is a future feature built on execution history once sufficient data is collected.
 
 ---
@@ -614,6 +616,15 @@ The conversational UI produces:
 - **GitHub Issue(s)** created from the spec if user triggers planning
 
 ---
+
+### 4.7 Artifacts in the Web UI
+
+The Web UI includes an **Artifacts** surface at both the project and run levels:
+
+- **Run artifacts panel** — browse, preview, and download outputs like gate reports, test logs, diffs/patches, and generated docs.
+- **Project artifact history** — filter by run, issue/branch, phase, agent, and time; link artifacts back to the GitHub Issue/PR that produced them.
+- **Parity with CLI** — everything available via `specmas artifacts ...` is discoverable in the UI, with stable permalinks for sharing inside a team.
+
 
 ## 5) NPM CLI (`specmas`)
 
