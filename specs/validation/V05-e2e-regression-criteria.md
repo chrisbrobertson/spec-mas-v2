@@ -11,3 +11,5 @@ Defines deterministic end-to-end and regression criteria for critical workflows.
 ## Validation Focus
 - Critical business paths are reproducible from clean environments.
 - Regressions are detectable through stable scenario baselines.
+- real-runtime e2e scenarios must start live runs, assert dynamic run IDs, and verify run-state progression without fixture-coupled assumptions.
+- Dashboard regression checks must include run list/detail, artifact visibility, and log-stream visibility for live API-backed runs.

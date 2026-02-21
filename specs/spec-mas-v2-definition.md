@@ -122,6 +122,11 @@ OpenHands provides:
 
 **v2 runs OpenHands exclusively on local Docker.** The user's machine (or a team-managed server) hosts the Docker daemon. OpenHands sandboxes are Docker containers on that host.
 
+**Spec-MAS application processes are local npm processes, not Dockerized by default.**
+- Spec-MAS API server, dashboard, and orchestration worker run directly via local Node.js/npm.
+- Docker is reserved for third-party runtime dependencies and sandboxes (for example OpenHands containers, PostgreSQL, Mailhog, sqlite-web).
+- This separation is the default and expected v2 operating model.
+
 **Why local-only for v2:**
 - Simpler setup — no cloud infrastructure to provision
 - Lower latency — no network round-trips to remote sandboxes
@@ -1200,6 +1205,7 @@ project:
     auto_create_pr: true               # Auto-create PR from agent branches
     pr_template: .specmas/pr-template.md
     required_reviewers: [team-lead]    # Humans who must approve agent PRs
+    merge_requires_human_approval: true
     branch_naming: "specmas/{run_id}/{issue_number}"
     
     # GitHub Actions integration
@@ -1517,6 +1523,11 @@ main
 ```
 
 Each task gets its own branch. Agents commit frequently to their task branch. The integration branch merges completed task branches. If a task branch goes bad, only that branch is discarded — other tasks are unaffected.
+
+Merge policy is explicit and mandatory:
+- Every run/task branch is dedicated to that run/task and must not be reused by another run.
+- Agent-produced branches may open PRs automatically, but merge into integration/release/default branches requires human approval.
+- No unattended auto-merge of agent branches is allowed in v2.
 
 ### 9.3 Commit Frequency
 
@@ -2297,8 +2308,12 @@ access_control:
 ### 14.1 Dashboard Views
 
 **Portfolio View** — all projects at a glance (see §7.3)
+- Project/repo selector with searchable project name, repo URL, and default branch
+- Quick switch between registered projects without leaving the dashboard
 
 **Project View:**
+- Visible project identity (name, repo URL, default branch)
+- Branch selector (`default`, `active run branches`, `integration`, `release`, `all`)
 - Active runs with phase progress
 - Issue queue with agent assignments
 - Agent configuration and status
@@ -2308,6 +2323,8 @@ access_control:
 **Run View:**
 - Phase-by-phase progress with timing
 - Task-level detail (which issue, which agent, status)
+- Branch lineage per run (`source`, `working`, `integration`, `release`)
+- Merge approval status (`awaiting_human_approval`, `approved`, `rejected`, `merged`)
 - Live agent output streaming (from OpenHands)
 - Recovery event timeline
 - **Artifact browser** (see §11.3) — inline viewing of all run artifacts
@@ -2369,6 +2386,14 @@ dashboard:
     features: [sandbox_status, agent_output_streaming, run_control]
 ```
 
+### 14.3 Dashboard Runtime Integration Contract
+
+- **run control contract:** dashboard-triggered execution uses `POST /runs` and `POST /runs/:runId/cancel`; no fixture-only control paths are allowed.
+- **persistent run data contract:** dashboard read paths (`/runs`, `/runs/:runId`, `/runs/:runId/artifacts`, `/runs/:runId/logs`, `/runs/:runId/logs/stream`) must resolve from persisted storage-backed records.
+- **dashboard run state contract:** run list/detail/phase views must render from persisted run, phase, and task state transitions and support dynamic run IDs.
+- **runtime observability contract:** logs and artifact views must display persisted runtime outputs and cursor-safe stream updates.
+- **quality gate contract:** real-runtime e2e scenarios must validate dynamic run IDs, status progression, log visibility, and artifact visibility through live API routes.
+
 ---
 
 ## 15) Deployment
@@ -2388,7 +2413,7 @@ specmas init
 # Set up OpenHands (pulls Docker images)
 specmas setup openhands
 
-# Start dashboard (runs OpenHands locally via Docker)
+# Start dashboard/API/orchestrator as local npm processes (OpenHands still uses Docker sandboxes)
 specmas dashboard start
 
 # Run a workflow
@@ -2396,8 +2421,8 @@ specmas run specs/my-feature.md
 ```
 
 **Requirements:**
-- Docker (for OpenHands sandboxes)
-- Node.js 20+
+- Node.js 20+ (for local Spec-MAS npm processes)
+- Docker (for third-party services and OpenHands sandboxes)
 - API keys for at least one LLM provider
 - GitHub token with `repo` scope
 - 16GB+ RAM recommended (8GB minimum)
@@ -2408,21 +2433,31 @@ specmas run specs/my-feature.md
 For teams running a shared Spec-MAS server on team-managed infrastructure (not cloud-hosted by OpenHands).
 
 ```bash
-# Deploy server on team machine/VM
+# Deploy third-party services on team machine/VM
 docker-compose up -d
+
+# Run Spec-MAS app services as local npm processes on host
+npm run dev
 ```
 
 **Components:**
-- Spec-MAS API Server
+- Spec-MAS API Server (local npm process)
+- Spec-MAS Dashboard (local npm process)
+- Spec-MAS orchestration worker (local npm process)
 - OpenHands Runtime (local Docker daemon with sandbox pool)
-- Dashboard (React app)
-- SQLite (local) or PostgreSQL (team server)
+- SQLite (local file) or PostgreSQL (Docker/service-managed)
 
 ### 15.3 Future: Cloud-Hosted OpenHands
 
 Remote/cloud-hosted OpenHands (OpenHands-managed infrastructure, Kubernetes sandbox pools, multi-region execution) is planned for a future release. v2 is local Docker only.
 
-### 15.4 Configuration Matrix
+### 15.4 Runtime Readiness Startup Model
+
+- Startup and run-init flows must expose **OpenHands runtime readiness** diagnostics before user execution.
+- Runtime readiness checks must cover Docker daemon reachability, runtime bootstrap/profile validity, and required runtime image availability.
+- `GET /runtime/readiness` provides deterministic readiness output for manual operators; `POST /runs` must reject execution with `503` when readiness is false.
+
+### 15.5 Configuration Matrix
 
 | Feature | Local Mode | Team Server | Future: Cloud |
 |---------|-----------|-------------|---------------|
@@ -2431,6 +2466,7 @@ Remote/cloud-hosted OpenHands (OpenHands-managed infrastructure, Kubernetes sand
 | Database | SQLite | PostgreSQL | Managed DB |
 | Auth | API token | GitHub OAuth | SSO |
 | OpenHands | Local Docker | Local Docker (shared) | Cloud-hosted |
+| Spec-MAS app services | Local npm processes | Local npm processes | Managed app runtime |
 | Dashboard | localhost:3000 | Hosted URL | Hosted URL |
 | Multi-user | No | Yes | Yes |
 

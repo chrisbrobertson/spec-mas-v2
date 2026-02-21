@@ -49,6 +49,40 @@
 ### Final Status
 - PASS
 
+## M10 Local npm Runtime Model Validation (2026-02-21)
+
+### Scope
+- Validate deployment-mode guardrails (`local_process` app services + `containerized_dependency` third-party services).
+- Validate runtime bootstrap Docker requirement behavior.
+- Validate new integration matrix scenario coverage for deployment profile rules.
+- Execute strict true E2E local-only command path with real local CLIs (`codex`, `claude`, `gemini`).
+
+### Commands
+- `corepack pnpm --filter @specmas/config test:unit -- schema precedence`
+- `corepack pnpm --filter @specmas/runtime exec vitest run tests/bootstrap.test.ts`
+- `corepack pnpm --filter @specmas/test-utils exec vitest run tests/deployment-profile.integration.test.ts`
+- `corepack pnpm -r --if-present typecheck`
+- `corepack pnpm -r --if-present test:unit`
+- `corepack pnpm -r --if-present test:integration`
+- `RUN_TRUE_E2E=1 RUN_TRUE_E2E_LOCAL_ONLY=1 corepack pnpm --filter @specmas/test-utils exec vitest run tests/real-components-full.e2e.test.ts`
+
+### Command Output Summary
+- Config schema/precedence tests: PASS.
+- Runtime bootstrap test: PASS.
+- Deployment profile integration test: PASS.
+- Workspace typecheck: PASS.
+- Workspace unit tests: PASS.
+- Workspace integration tests: PASS.
+- Strict true E2E local-only: FAIL (`build-spec` output missed required `Overview` section; gate failure expected and surfaced deterministically).
+
+### Observations
+- Deployment profile contract is now enforced in config and runtime layers.
+- Runtime bootstrap now requires Docker only when OpenHands/containerized dependencies are enabled.
+- Strict local-only E2E now executes real CLI tools and fails on invalid/no-op generation outcomes as intended.
+
+### Final Status
+- PASS with noted true-E2E quality failure in live model output (non-mocked, expectedly surfaced).
+
 ## M3-T2 Deployment + Operations Validation (2026-02-21)
 
 ### Scope
@@ -194,6 +228,29 @@
 - Regression issue encountered during validation:
   - web build initially failed due `HeadersInit` typing in API client request construction.
   - resolved by switching to `Headers` object construction and updating affected unit assertions.
+
+### Final Status
+- PASS
+
+## M11 OpenHands-UI Integration Closure Validation (2026-02-21)
+
+### Scope
+- Validate integration behavior for T067-T072: persisted run queries, API run control/start-cancel orchestration, persisted logs/artifacts retrieval, runtime readiness gating, and real-runtime dashboard Playwright workflows.
+
+### Commands
+- `corepack pnpm --filter @specmas/api test:integration`
+- `corepack pnpm --filter @specmas/test-utils test:integration -- deployment-profile`
+- `corepack pnpm --filter @specmas/web exec playwright test -c ../../playwright.web.config.ts --grep real-runtime`
+
+### Command Output Summary
+- `corepack pnpm --filter @specmas/api test:integration`: PASS (`14` files, `49` tests).
+- `corepack pnpm --filter @specmas/test-utils test:integration -- deployment-profile`: PASS (`9` files passed, `1` skipped; `23` tests passed, `2` skipped).
+- `corepack pnpm --filter @specmas/web exec playwright test -c ../../playwright.web.config.ts --grep real-runtime`: PASS (`2` Playwright scenarios passed).
+
+### Observations
+- API integration confirms persisted run reads + run-control/readiness paths are stable.
+- Deployment-profile integration confirms runtime bootstrap/readiness assumptions remain enforced.
+- Real-runtime dashboard e2e confirms dynamic run IDs, terminal status progression, and live logs/artifacts visibility through API-backed UI routes.
 
 ### Final Status
 - PASS

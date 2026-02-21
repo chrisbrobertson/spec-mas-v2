@@ -84,6 +84,41 @@
 ### Result
 - Overall M2-T2 docs parity: PASS.
 
+## M10 Local npm Runtime Deployment Parity Review (2026-02-21)
+
+### Scope
+- Verify parity for the deployment model rule: Spec-MAS app services run as local npm processes, while Docker is reserved for third-party/runtime dependencies.
+
+### Implementation References
+- `packages/config/src/schema.ts`
+- `packages/runtime/src/bootstrap.ts`
+- `packages/test-utils/tests/deployment-profile.integration.test.ts`
+- `packages/test-utils/tests/real-components-full.e2e.test.ts`
+- `docs/release/docker-compose.team.yml`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+- `docs/release/staging-rollout-playbook.md`
+- `docs/planning/local-npm-runtime-implementation-plan.md`
+- `specs/spec-mas-v2-definition.md`
+- `specs/architecture/A03-openhands-runtime-lifecycle.md`
+- `specs/architecture/A08-deployment-architecture.md`
+
+### Parity Checks
+- Deployment model wording:
+  - Docs consistently state local npm processes for app services and Docker-only for dependencies/runtime backends.
+  - Status: PASS.
+- Team compose profile scope:
+  - Compose file now only includes third-party services (`sqlite-web`, `mailhog`), no app service containers.
+  - Status: PASS.
+- Runtime/config guardrails:
+  - Config and runtime now enforce v2 mode combinations aligned with documentation.
+  - Status: PASS.
+
+### Result
+- Overall M10 docs parity: PASS.
+
 ## M2-T3 Auth + Session UX Parity Review (2026-02-21)
 
 ### Scope
@@ -255,3 +290,50 @@
 
 ### Result
 - Overall M3-T2 docs parity: PASS.
+
+## M11 OpenHands-UI Integration Contract Parity Review (2026-02-21)
+
+### Scope
+- Verify documentation/spec parity for T067-T072 implementation outcomes:
+  - API run control paths
+  - persistence + streaming read behavior
+  - runtime readiness startup model
+  - real-runtime dashboard e2e validation criteria
+
+### Implementation References
+- `apps/api/src/server.ts`
+- `apps/api/src/runQueryService.ts`
+- `apps/api/src/runControlService.ts`
+- `apps/api/src/runtimeReadiness.ts`
+- `apps/web/tests-e2e/core-ui-workflows.spec.ts`
+
+### Documentation References
+- `specs/spec-mas-v2-definition.md`
+- `specs/reference-map.md`
+- `specs/features/F01-openhands-orchestration-runtime.md`
+- `specs/architecture/A03-openhands-runtime-lifecycle.md`
+- `specs/architecture/A08-deployment-architecture.md`
+- `specs/architecture/A09-dashboard-architecture.md`
+- `specs/validation/V05-e2e-regression-criteria.md`
+- `specs/validation/V07-validation-tooling-and-artifacts.md`
+
+### Parity Checks
+- Run control paths:
+  - Spec/docs now define `POST /runs` and `POST /runs/:runId/cancel` as the canonical run control path.
+  - Implementation uses these endpoints for runtime orchestration entry/exit.
+  - Status: PASS.
+- Persistent run data + stream behavior:
+  - Spec/docs now require persistent run data for list/detail/artifacts/logs/log-stream routes.
+  - Implementation serves persisted run, phase/task, artifact, and stream payload data through API read services.
+  - Status: PASS.
+- Runtime readiness startup model:
+  - Spec/docs now define OpenHands runtime readiness checks and `503` start rejection behavior.
+  - Implementation provides `/runtime/readiness` and readiness gating in run start flow.
+  - Status: PASS.
+- Real-runtime dashboard validation criteria:
+  - Spec/docs now require real-runtime e2e coverage for dynamic run IDs, status progression, logs, and artifacts.
+  - Playwright implementation covers these behaviors under `--grep real-runtime` scenarios.
+  - Status: PASS.
+
+### Result
+- Overall M11 docs/spec parity: PASS.

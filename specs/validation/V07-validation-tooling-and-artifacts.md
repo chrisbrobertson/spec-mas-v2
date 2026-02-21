@@ -11,3 +11,5 @@ Defines validation entrypoints, artifact evidence format, and observability requ
 ## Validation Focus
 - `specmas` validation commands emit deterministic, consumable outputs.
 - Validation evidence is retained and discoverable across CLI and dashboard views.
+- Validation evidence for run execution must include persistent run data (run/phase/task status), persisted artifacts, and replayable log stream payloads.
+- Runtime integration checks must verify that run control writes and read endpoints stay in sync for dashboard and CLI observability.

@@ -14,7 +14,7 @@ All split specs should cite `SRC-*` IDs from this file instead of repeating the 
 | `SRC-1.1` | System layers | `spec-mas-v2-definition.md#11-system-layers` |
 | `SRC-1.2` | Core technology decisions | `spec-mas-v2-definition.md#12-core-technology-decisions` |
 | `SRC-2.1` | Why OpenHands | `spec-mas-v2-definition.md#21-why-openhands` |
-| `SRC-2.2` | Local Docker deployment model | `spec-mas-v2-definition.md#22-deployment-model-local-docker-only-v2` |
+| `SRC-2.2` | Local deployment model (Spec-MAS local npm + Dockerized third-party runtime) | `spec-mas-v2-definition.md#22-deployment-model-local-docker-only-v2` |
 | `SRC-2.3` | OpenHands orchestration core | `spec-mas-v2-definition.md#23-openhands-as-orchestration-core` |
 | `SRC-2.4` | OpenHands runtime configuration | `spec-mas-v2-definition.md#24-openhands-runtime-configuration` |
 | `SRC-2.5` | Sandbox lifecycle | `spec-mas-v2-definition.md#25-sandbox-lifecycle` |
@@ -37,7 +37,9 @@ All split specs should cite `SRC-*` IDs from this file instead of repeating the 
 | `SRC-12` | GitHub Actions integration | `spec-mas-v2-definition.md#12-github-actions-integration` |
 | `SRC-13` | Security | `spec-mas-v2-definition.md#13-security` |
 | `SRC-14` | Web dashboard | `spec-mas-v2-definition.md#14-web-dashboard` |
+| `SRC-14.3` | Dashboard run state and runtime integration contract | `spec-mas-v2-definition.md#143-dashboard-runtime-integration-contract` |
 | `SRC-15` | Deployment | `spec-mas-v2-definition.md#15-deployment` |
+| `SRC-15.4` | OpenHands runtime readiness startup model | `spec-mas-v2-definition.md#154-runtime-readiness-startup-model` |
 | `SRC-16` | Data model | `spec-mas-v2-definition.md#16-data-model` |
 | `SRC-17` | Migration from v1 | `spec-mas-v2-definition.md#17-migration-from-v1` |
 | `SRC-18` | Implementation roadmap | `spec-mas-v2-definition.md#18-implementation-roadmap` |

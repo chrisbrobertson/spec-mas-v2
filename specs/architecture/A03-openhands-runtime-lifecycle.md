@@ -10,3 +10,9 @@ Defines OpenHands runtime constraints, sandbox configuration, and lifecycle (pro
 
 ## Notes
 - v2 is local Docker only; cloud-hosted runtime is explicitly deferred.
+- This Docker scope applies to OpenHands runtime/sandboxes; Spec-MAS services themselves run locally via npm/Node.js processes.
+
+## Architecture Requirements
+- OpenHands runtime readiness must be evaluated before run start, including Docker daemon availability, runtime bootstrap profile validation, and required image checks.
+- Runtime lifecycle transitions must flow through API run control endpoints and persist run/phase/task state for downstream UI/CLI read models.
+- Runtime capture outputs must be persisted as artifacts and log events so stream replay and artifact discovery remain deterministic across restarts.
