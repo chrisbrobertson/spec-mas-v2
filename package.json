@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev:web": "corepack pnpm --filter @specmas/web dev",
-    "dev:api": "API_PORT=3100 API_HOST=0.0.0.0 CORS_ORIGIN=http://localhost:3000 corepack pnpm --filter @specmas/api dev",
+    "dev:api": "DATABASE_URL=${DATABASE_URL:-file:./specmas.db} API_PORT=3100 API_HOST=0.0.0.0 CORS_ORIGIN=http://localhost:3000 corepack pnpm --filter @specmas/api dev",
     "dev:full": "node scripts/dev-full.mjs",
     "lint": "corepack pnpm -r --if-present lint",
     "typecheck": "corepack pnpm -r --if-present typecheck",
@@ -14,7 +14,10 @@
     "test:e2e": "corepack pnpm -r --if-present test:e2e",
     "build": "corepack pnpm -r --if-present build",
     "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev --name init"
+    "prisma:migrate:dev": "prisma migrate dev --name init",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "node prisma/seed.mjs",
+    "db:bootstrap": "DATABASE_URL=${DATABASE_URL:-file:./specmas.db} corepack pnpm prisma:migrate:deploy && DATABASE_URL=${DATABASE_URL:-file:./specmas.db} corepack pnpm prisma:seed"
   },
   "devDependencies": {
     "@playwright/test": "1.58.2",

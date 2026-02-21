@@ -103,12 +103,31 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T2 Persistence + Bootstrap
-- Status: pending
+- Status: completed
 - Owner: implementation
 - Goals:
   - Finalize Prisma schema for user-visible entities
   - Add migration + seed flow for local/staging
   - Add startup preflight for DB readiness
+- Files:
+  - `prisma/schema.prisma`
+  - `prisma/migrations/0001_init/migration.sql`
+  - `prisma/seed.mjs`
+  - `apps/api/src/dbPreflight.ts`
+  - `apps/api/src/index.ts`
+  - `apps/api/tests/db-preflight.test.ts`
+  - `package.json`
+  - `scripts/dev-full.mjs`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `corepack pnpm --filter @specmas/api test:unit`
+  - `corepack pnpm --filter @specmas/web test:unit`
+  - `corepack pnpm -r --if-present test:unit`
+  - `corepack pnpm -r --if-present test:integration`
+  - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T3 Auth + Session UX
 - Status: pending

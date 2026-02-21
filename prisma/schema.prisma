@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum RunStatus {
+  pending
+  running
+  completed
+  failed
+  paused
+  cancelled
+}
+
+enum PhaseStatus {
+  pending
+  running
+  completed
+  failed
+  skipped
+  cancelled
+}
+
+enum TaskStatus {
+  pending
+  running
+  completed
+  failed
+  blocked
+  cancelled
+}
+
+enum ArtifactType {
+  json
+  md
+  sarif
+  patch
+  html
+  jsonl
+  xml
+  text
+  log
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  repoUrl     String   @unique
+  defaultBranch String @default("main")
+  configYaml  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  runs        Run[]
+
+  @@index([name])
+}
+
+model Run {
+  id          String   @id @default(cuid())
+  projectId   String
+  specId      String?
+  workflowId  String?
+  status      RunStatus @default(pending)
+  currentPhase String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  initiatedBy String?
+  errorMessage String?
+  artifactPath String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phases      Phase[]
+  tasks       Task[]
+  artifacts   Artifact[]
+
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Phase {
+  id          String   @id @default(cuid())
+  runId       String
+  name        String
+  status      PhaseStatus @default(pending)
+  agentId     String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorMessage String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  run         Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  artifacts   Artifact[]
+
+  @@index([runId, createdAt])
+  @@unique([runId, name])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  runId       String
+  phaseId     String
+  githubIssueNumber Int?
+  githubIssueUrl String?
+  specSection  String?
+  agentId      String?
+  status       TaskStatus @default(pending)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  retryCount   Int      @default(0)
+  restartCount Int      @default(0)
+  branchName   String?
+  resultJson   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  run         Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  phase       Phase    @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  artifacts   Artifact[]
+
+  @@index([runId, phaseId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Artifact {
+  id          String   @id @default(cuid())
+  runId       String?
+  phaseId     String?
+  taskId      String?
+  path        String
+  type        ArtifactType @default(json)
+  sizeBytes   Int?
+  createdAt   DateTime @default(now())
+  run         Run?     @relation(fields: [runId], references: [id], onDelete: SetNull)
+  phase       Phase?   @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([runId, createdAt])
+  @@index([phaseId, createdAt])
+  @@index([taskId, createdAt])
+}

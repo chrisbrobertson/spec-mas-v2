@@ -50,6 +50,7 @@ process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
 launch('api', 'corepack', ['pnpm', '--filter', '@specmas/api', 'dev'], {
+  DATABASE_URL: process.env.DATABASE_URL ?? 'file:./specmas.db',
   API_PORT: '3100',
   API_HOST: '0.0.0.0',
   CORS_ORIGIN: 'http://localhost:3000'

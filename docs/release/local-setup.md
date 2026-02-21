@@ -10,10 +10,11 @@ This document provides deterministic local setup steps for release validation.
 
 ## Steps
 1. Install dependencies: `corepack pnpm install`.
-2. Build workspace packages: `corepack pnpm build`.
-3. Start the local full stack: `corepack pnpm dev:full`.
-4. Start optional team services: `docker compose -f docs/release/docker-compose.team.yml up -d`.
-5. Run migration dry-run: `docs/release/migration-dry-run.sh`.
+2. Bootstrap database: `DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap`.
+3. Build workspace packages: `corepack pnpm build`.
+4. Start the local full stack: `corepack pnpm dev:full`.
+5. Start optional team services: `docker compose -f docs/release/docker-compose.team.yml up -d`.
+6. Run migration dry-run: `docs/release/migration-dry-run.sh`.
 
 ## Port Map
 - Web UI: `http://localhost:3000`
@@ -32,6 +33,7 @@ This document provides deterministic local setup steps for release validation.
 ## Runtime Notes
 - API read endpoints require `x-role` set to one of `viewer|developer|operator|admin`.
 - The web runtime uses a typed client (`apps/web/src/runtime/apiClient.ts`) and defaults to API base `http://localhost:3100`.
+- API startup now runs DB preflight and fails fast when `DATABASE_URL` is missing, Prisma files are missing, or migrations are unapplied.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.

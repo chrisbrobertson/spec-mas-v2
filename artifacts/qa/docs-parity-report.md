@@ -48,3 +48,38 @@
 ## Conclusion
 - Overall M2 parity status: PASS.
 - Final determination: documentation is in sync with implementation for the assessed scope, including runtime API endpoints, role-header semantics, and typed web API client behavior.
+
+## M2-T2 Persistence + Bootstrap Parity Review (2026-02-21)
+
+### Scope
+- Verify documentation parity for DB bootstrap and API startup preflight behavior introduced in M2-T2.
+
+### Implementation References
+- `apps/api/src/dbPreflight.ts`
+- `apps/api/src/index.ts`
+- `package.json`
+- `scripts/dev-full.mjs`
+- `prisma/schema.prisma`
+- `prisma/migrations/0001_init/migration.sql`
+- `prisma/seed.mjs`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+
+### Parity Checks
+- Database bootstrap command:
+  - Docs specify `DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap`.
+  - Implementation provides `db:bootstrap`, `prisma:migrate:deploy`, and `prisma:seed` scripts with matching default DB URL.
+  - Status: PASS.
+- API startup preflight behavior:
+  - Docs state startup fails fast when `DATABASE_URL` is missing, Prisma files are missing, or migrations are unapplied.
+  - Implementation enforces all three checks in `runDatabasePreflight`, wired in API startup path.
+  - Status: PASS.
+- Local startup command flow:
+  - Docs include bootstrap before `corepack pnpm dev:full`.
+  - Runtime launcher and `dev:api` script set default DB URL and align with documented flow.
+  - Status: PASS.
+
+### Result
+- Overall M2-T2 docs parity: PASS.

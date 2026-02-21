@@ -24,6 +24,7 @@ Spec-MAS v2 is a specification-first multi-agent orchestration design centered o
 ### Start
 ```bash
 corepack pnpm install
+DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap
 corepack pnpm dev:full
 ```
 
@@ -48,6 +49,17 @@ corepack pnpm dev:full
   - `POST /sessions/:sessionId/resume`
 
 The web runtime consumes these through a typed client at `apps/web/src/runtime/apiClient.ts`, with default API base `http://localhost:3100`.
+
+### Database Bootstrap
+- `DATABASE_URL` must point to a writable SQLite DB path (default used by scripts: `file:./specmas.db`, resolved relative to `prisma/schema.prisma`).
+- Bootstrap command:
+```bash
+DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap
+```
+- API startup preflight now verifies:
+  - required Prisma schema/migration files exist,
+  - SQLite file exists (for file-based URLs),
+  - all local migrations are applied before API starts listening.
 
 ### Optional Team Tools
 ```bash
