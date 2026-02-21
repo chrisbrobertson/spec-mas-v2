@@ -74,10 +74,15 @@ DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap
   - SQLite file exists (for file-based URLs),
   - all local migrations are applied before API starts listening.
 
-### Optional Team Tools
+### Team Deployment Profile
 ```bash
 docker compose -f docs/release/docker-compose.team.yml up -d
 ```
+
+- Reverse proxy + web entrypoint: `http://localhost:3000`
+- API via proxy: `http://localhost:3000/api/health`
+- SQLite web (optional): `http://localhost:8080`
+- Mailhog UI (optional): `http://localhost:8025`
 
 ## Authoring Rule (DRY)
 - Keep canonical requirement text in `specs/spec-mas-v2-definition.md`.

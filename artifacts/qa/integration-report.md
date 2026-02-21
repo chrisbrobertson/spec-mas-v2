@@ -49,6 +49,25 @@
 ### Final Status
 - PASS
 
+## M3-T2 Deployment + Operations Validation (2026-02-21)
+
+### Scope
+- Validate team deployment compose profile, reverse proxy routing config, and rollout/rollback operational artifacts.
+
+### Commands
+- `docker compose -f docs/release/docker-compose.team.yml config`
+
+### Command Output Summary
+- Compose config validation passed (exit code `0`).
+
+### Observations
+- Deployment profile now includes `api`, `web`, and `proxy` services with healthchecks and log rotation options.
+- Proxy config provides `/api/` routing to API and root routing to web, with `/healthz` probe endpoint.
+- Staging rollout + rollback playbook documents deterministic deployment verification and rollback path.
+
+### Final Status
+- PASS
+
 ## M3-T4 Documentation + Runbooks Validation (2026-02-21)
 
 ### Scope

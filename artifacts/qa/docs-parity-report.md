@@ -225,3 +225,33 @@
 
 ### Result
 - Overall M3-T4 docs parity: PASS.
+
+## M3-T2 Deployment + Operations Parity Review (2026-02-21)
+
+### Scope
+- Verify deployment profile and operations documentation parity for team stack rollout.
+
+### Implementation References
+- `docs/release/docker-compose.team.yml`
+- `docs/release/nginx.team.conf`
+- `docs/release/staging-rollout-playbook.md`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+
+### Parity Checks
+- Team deployment command parity:
+  - Docs point to `docker compose -f docs/release/docker-compose.team.yml up -d`.
+  - Compose file contains proxy/web/api deployment profile and optional tooling services.
+  - Status: PASS.
+- Proxy and health verification parity:
+  - Docs include proxy health/API verification paths.
+  - Nginx config exposes `/healthz` and `/api/*` routing to backend service.
+  - Status: PASS.
+- Rollout/rollback guidance:
+  - Playbook includes staged deployment verification and rollback sequence.
+  - Status: PASS.
+
+### Result
+- Overall M3-T2 docs parity: PASS.

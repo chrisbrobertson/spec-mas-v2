@@ -13,12 +13,13 @@ This document provides deterministic local setup steps for release validation.
 2. Bootstrap database: `DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap`.
 3. Build workspace packages: `corepack pnpm build`.
 4. Start the local full stack: `corepack pnpm dev:full`.
-5. Start optional team services: `docker compose -f docs/release/docker-compose.team.yml up -d`.
+5. Start team deployment profile (proxy + web + api + optional tools): `docker compose -f docs/release/docker-compose.team.yml up -d`.
 6. Run migration dry-run: `docs/release/migration-dry-run.sh`.
 
 ## Port Map
 - Web UI: `http://localhost:3000`
 - API: `http://localhost:3100`
+- Proxy API route: `http://localhost:3000/api/health`
 - SQLite web (optional): `http://localhost:8080`
 - Mailhog UI (optional): `http://localhost:8025`
 - Mailhog SMTP (optional): `localhost:1025`
@@ -29,6 +30,8 @@ This document provides deterministic local setup steps for release validation.
 - `corepack pnpm --filter @specmas/web test:e2e`
 - `curl -s http://localhost:3100/health`
 - `curl -s -H 'x-role: viewer' http://localhost:3100/runs`
+- `curl -s http://localhost:3000/healthz`
+- `curl -s http://localhost:3000/api/health`
 
 ## Runtime Notes
 - API read endpoints require `x-role` set to one of `viewer|developer|operator|admin`.
@@ -41,5 +44,6 @@ This document provides deterministic local setup steps for release validation.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.
+- If proxy routing fails, check `docs/release/nginx.team.conf` and restart `proxy`.
 - If builds fail, run `corepack pnpm typecheck` and fix type errors first.
 - If `sqlite-web` fails to pull, replace `coleifer/sqlite-web:0.6.4` with `coleifer/sqlite-web:latest` in `docs/release/docker-compose.team.yml`.

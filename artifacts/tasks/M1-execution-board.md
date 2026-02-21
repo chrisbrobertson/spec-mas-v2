@@ -210,12 +210,22 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M3-T2 Deployment + Operations
-- Status: pending
+- Status: completed
 - Owner: platform
 - Goals:
   - Dockerized deploy profile for web + api + db
   - Reverse proxy + health probes + logs/metrics integration
   - Staging rollout checklist and rollback playbook
+- Files:
+  - `docs/release/docker-compose.team.yml`
+  - `docs/release/nginx.team.conf`
+  - `docs/release/staging-rollout-playbook.md`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `docker compose -f docs/release/docker-compose.team.yml config`
 
 ### M3-T3 Quality Gates
 - Status: completed
