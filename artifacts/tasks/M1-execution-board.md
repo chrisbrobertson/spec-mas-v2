@@ -159,12 +159,28 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T4 Real Workflow Screens
-- Status: pending
+- Status: completed
 - Owner: implementation
 - Goals:
   - Convert core routes to real backend-driven flows
   - Runs list/detail + artifacts + live logs + authoring persistence
   - Complete loading/empty/error edge states per route
+- Files:
+  - `apps/web/src/runtime/RuntimeApp.tsx`
+  - `apps/web/src/runtime/apiClient.ts`
+  - `apps/web/src/runtime/routeStateMessages.ts`
+  - `apps/web/tests/runtime-api-client.test.ts`
+  - `apps/web/tests/route-state-messages.test.ts`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `corepack pnpm --filter @specmas/api test:unit`
+  - `corepack pnpm --filter @specmas/web test:unit`
+  - `corepack pnpm -r --if-present test:unit`
+  - `corepack pnpm -r --if-present test:integration`
+  - `corepack pnpm --filter @specmas/web test:e2e`
 
 ## M3 Tickets (Production Readiness)
 

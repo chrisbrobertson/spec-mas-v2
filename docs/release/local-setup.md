@@ -36,7 +36,7 @@ This document provides deterministic local setup steps for release validation.
 - API startup now runs DB preflight and fails fast when `DATABASE_URL` is missing, Prisma files are missing, or migrations are unapplied.
 - Web runtime now enforces login via `POST /auth/login` before route access.
 - Local users are built in for manual testing (`admin`, `operator`, `developer`, `viewer`) and each password matches its username.
-- Web auth sessions are persisted in browser local storage and expire automatically.
+- Web auth sessions are persisted in browser local storage, authoring session ids can be restored, and auth sessions expire automatically.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.

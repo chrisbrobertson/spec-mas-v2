@@ -49,6 +49,33 @@
 ### Final Status
 - PASS
 
+## M2-T4 Real Workflow Screens Validation (2026-02-21)
+
+### Scope
+- Validate route-level workflow completion updates for runs/detail/artifacts/logs and authoring session persistence.
+
+### Commands
+- `corepack pnpm --filter @specmas/api test:unit`
+- `corepack pnpm --filter @specmas/web test:unit`
+- `corepack pnpm -r --if-present test:unit`
+- `corepack pnpm -r --if-present test:integration`
+- `corepack pnpm --filter @specmas/web test:e2e`
+
+### Command Output Summary
+- `corepack pnpm --filter @specmas/api test:unit`: PASS (`8` files, `31` tests).
+- `corepack pnpm --filter @specmas/web test:unit`: PASS (`10` files, `33` tests).
+- `corepack pnpm -r --if-present test:unit`: PASS (workspace-wide; one pre-existing skipped test in `packages/test-utils`).
+- `corepack pnpm -r --if-present test:integration`: PASS (workspace-wide; one pre-existing skipped test in `packages/test-utils`).
+- `corepack pnpm --filter @specmas/web test:e2e`: PASS (`5 passed`).
+
+### Observations
+- Web runtime route screens now provide explicit empty/loading/error UX states for runs, run detail, artifacts, and logs.
+- Authoring route now restores persisted session id through API load and keeps session sync state coherent.
+- New unit coverage verifies route empty-state message behavior and persisted session load client path.
+
+### Final Status
+- PASS
+
 ## M2-T3 Auth + Session UX Validation (2026-02-21)
 
 ### Scope

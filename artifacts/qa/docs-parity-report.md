@@ -117,3 +117,32 @@
 
 ### Result
 - Overall M2-T3 docs parity: PASS.
+
+## M2-T4 Real Workflow Screens Parity Review (2026-02-21)
+
+### Scope
+- Verify documentation parity for workflow-screen completeness updates and authoring persistence behavior.
+
+### Implementation References
+- `apps/web/src/runtime/RuntimeApp.tsx`
+- `apps/web/src/runtime/apiClient.ts`
+- `apps/web/src/runtime/routeStateMessages.ts`
+- `apps/web/tests/route-state-messages.test.ts`
+- `apps/web/tests/runtime-api-client.test.ts`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+
+### Parity Checks
+- Authoring persistence:
+  - Docs state authoring session ids can be restored.
+  - Implementation restores stored authoring session ids and loads session details via API.
+  - Status: PASS.
+- Workflow screen state coverage:
+  - Docs emphasize manual-test-ready runtime behavior.
+  - Implementation now includes explicit empty/loading/error states across core workflow routes.
+  - Status: PASS.
+
+### Result
+- Overall M2-T4 docs parity: PASS.

@@ -58,6 +58,7 @@ The web runtime consumes these through a typed client at `apps/web/src/runtime/a
 - Web session lifecycle:
   - stores auth session in local storage,
   - enforces role-based UI behavior (for example, `viewer` is read-only for authoring sync/create),
+  - restores persisted authoring session ids,
   - signs user out when token/session expires.
 
 ### Database Bootstrap

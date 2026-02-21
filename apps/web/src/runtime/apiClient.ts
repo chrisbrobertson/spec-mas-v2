@@ -202,6 +202,19 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
         options.onUnauthorized
       );
     },
+    getSession(sessionId: string) {
+      return requestJson<SessionRecord>(
+        baseUrl,
+        `/sessions/${sessionId}`,
+        {
+          method: 'GET'
+        },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
+    },
     resumeSession(sessionId: string, input: ResumeSessionInput) {
       return requestJson<SessionRecord>(
         baseUrl,

@@ -97,6 +97,30 @@ describe('runtime-api-client', () => {
     expect(response.role).toBe('developer');
   });
 
+  it('loads persisted authoring sessions by id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'session-0007',
+          specId: 'spec-runtime',
+          mode: 'guided',
+          status: 'active',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          resumedAt: '2026-01-01T00:00:00.000Z',
+          messages: ['resume']
+        }),
+        { status: 200 }
+      )
+    );
+
+    const client = createApiClient('http://localhost:3100', { role: 'developer' });
+    const response = await client.getSession('session-0007');
+
+    expect(response.id).toBe('session-0007');
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3100/sessions/session-0007', expect.any(Object));
+  });
+
   it('uses bearer token and calls unauthorized handler in failure path', async () => {
     const onUnauthorized = vi.fn();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(

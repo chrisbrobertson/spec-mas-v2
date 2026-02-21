@@ -22,10 +22,17 @@ import {
   type AuthSessionRecord
 } from './authSession.js';
 import { resolveApiBaseUrl } from './config.js';
+import {
+  artifactsEmptyStateMessage,
+  logsEmptyStateMessage,
+  runDetailEmptyStateMessage,
+  runsEmptyStateMessage
+} from './routeStateMessages.js';
 import { materializeRoutes } from './routes.js';
 
 const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const SESSION_EXPIRED_EVENT = 'specmas.auth.session.expired';
+const AUTHORING_SESSION_STORAGE_KEY = 'specmas.authoring.session-id';
 const NAV_ROUTES = materializeRoutes(createRouteSkeleton());
 
 function isBrowserEnvironment(): boolean {
@@ -75,6 +82,28 @@ function clearStoredAuthSession(): void {
     return;
   }
   localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+}
+
+function readStoredAuthoringSessionId(): string | undefined {
+  if (!isBrowserEnvironment()) {
+    return undefined;
+  }
+
+  const value = localStorage.getItem(AUTHORING_SESSION_STORAGE_KEY);
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function persistAuthoringSessionId(sessionId: string): void {
+  if (!isBrowserEnvironment()) {
+    return;
+  }
+
+  localStorage.setItem(AUTHORING_SESSION_STORAGE_KEY, sessionId);
 }
 
 const runtimeApiClient = createApiClient(API_BASE_URL, {
@@ -175,10 +204,12 @@ function RunsPage() {
   }
 
   const runItems = buildRunListView(runs);
+  const emptyState = runsEmptyStateMessage(runItems.length);
 
   return (
     <section>
       <h2>Runs</h2>
+      {emptyState ? <p>{emptyState}</p> : null}
       <ul>
         {runItems.map((item) => (
           <li key={item.id}>
@@ -243,6 +274,8 @@ function RunDetailPage() {
     );
   }
 
+  const emptyState = runDetailEmptyStateMessage(detail.timeline.length);
+
   return (
     <section>
       <h2>Run Detail</h2>
@@ -252,6 +285,7 @@ function RunDetailPage() {
       <p>
         <Link to={`/runs/${detail.runId}/artifacts`}>Artifacts</Link> | <Link to={`/runs/${detail.runId}/logs`}>Logs</Link>
       </p>
+      {emptyState ? <p>{emptyState}</p> : null}
       <ol>
         {detail.timeline.map((phase) => (
           <li key={phase.phaseId}>
@@ -323,11 +357,13 @@ function ArtifactsPage() {
   const tree = buildArtifactTree(paths);
   const content = selectedPath ? contents[selectedPath] ?? '' : '';
   const preview = selectedPath ? renderArtifactPreview(selectedPath, content) : { renderer: 'text', summary: 'No artifact selected' };
+  const emptyState = artifactsEmptyStateMessage(paths.length);
 
   return (
     <section>
       <h2>Artifacts</h2>
       <p>Root nodes: {tree.children.map((node) => node.name).join(', ') || '(none)'}</p>
+      {emptyState ? <p>{emptyState}</p> : null}
       <div className="stack">
         {paths.map((artifactPath) => (
           <button type="button" key={artifactPath} onClick={() => setSelectedPath(artifactPath)}>
@@ -404,11 +440,14 @@ function LogStreamPage() {
     refresh();
   };
 
+  const emptyState = !loading ? logsEmptyStateMessage(snapshot.logs.length) : undefined;
+
   return (
     <section>
       <h2>Live Log Stream</h2>
       {loading ? <p>Loading logs...</p> : null}
       {error ? <p className="error">{error}</p> : null}
+      {emptyState ? <p>{emptyState}</p> : null}
       <div className="stack">
         <button type="button" onClick={connect}>
           Connect
@@ -447,6 +486,27 @@ function AuthoringPage({ role }: AuthoringPageProps) {
     }
   };
 
+  const restoreSession = async (storedSessionId: string) => {
+    try {
+      const session = await runtimeApiClient.getSession(storedSessionId);
+      setSessionId(session.id);
+      persistAuthoringSessionId(session.id);
+      setSyncStatus(`session ${session.id} restored (${session.messages.length} messages)`);
+      setError('');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to restore session');
+    }
+  };
+
+  useEffect(() => {
+    const storedSessionId = readStoredAuthoringSessionId();
+    if (!storedSessionId) {
+      return;
+    }
+
+    void restoreSession(storedSessionId);
+  }, []);
+
   const createSession = async () => {
     if (!writeEnabled) {
       setError(`Role ${role} cannot create authoring sessions`);
@@ -459,6 +519,7 @@ function AuthoringPage({ role }: AuthoringPageProps) {
         mode: state.mode
       });
       setSessionId(session.id);
+      persistAuthoringSessionId(session.id);
       setSyncStatus(`session ${session.id} ready`);
       setError('');
     } catch (caughtError) {
@@ -481,6 +542,7 @@ function AuthoringPage({ role }: AuthoringPageProps) {
       const session = await runtimeApiClient.resumeSession(sessionId, {
         message: `mode=${state.mode};active=${state.activeSectionId ?? 'none'}`
       });
+      persistAuthoringSessionId(session.id);
       setSyncStatus(`synced messages=${session.messages.length}`);
       setError('');
     } catch (caughtError) {
@@ -517,6 +579,19 @@ function AuthoringPage({ role }: AuthoringPageProps) {
         </button>
         <button type="button" onClick={() => void syncSession()} disabled={!writeEnabled}>
           Sync Session
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const storedSessionId = readStoredAuthoringSessionId();
+            if (!storedSessionId) {
+              setError('No stored authoring session found');
+              return;
+            }
+            void restoreSession(storedSessionId);
+          }}
+        >
+          Restore Session
         </button>
       </div>
       {error ? <p className="error">Error: {error}</p> : null}
