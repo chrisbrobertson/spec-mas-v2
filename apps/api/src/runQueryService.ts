@@ -203,6 +203,54 @@ function compareByIsoThenId(left: { startedAt: string; id: string }, right: { st
   return right.id.localeCompare(left.id);
 }
 
+function splitNonEmptyLines(input: string): string[] {
+  return input
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+export function parseTaskExecutionResult(resultJson: string | null | undefined): {
+  logs: string[];
+  stdoutLines: string[];
+  stderrLines: string[];
+} {
+  if (!resultJson) {
+    return {
+      logs: [],
+      stdoutLines: [],
+      stderrLines: []
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(resultJson) as {
+      logs?: unknown;
+      stdout?: unknown;
+      stderr?: unknown;
+    };
+
+    const logs =
+      Array.isArray(parsed.logs) && parsed.logs.every((entry) => typeof entry === 'string')
+        ? (parsed.logs as string[])
+        : [];
+    const stdoutLines = typeof parsed.stdout === 'string' ? splitNonEmptyLines(parsed.stdout) : [];
+    const stderrLines = typeof parsed.stderr === 'string' ? splitNonEmptyLines(parsed.stderr) : [];
+
+    return {
+      logs,
+      stdoutLines,
+      stderrLines
+    };
+  } catch {
+    return {
+      logs: [],
+      stdoutLines: [],
+      stderrLines: []
+    };
+  }
+}
+
 export class InMemoryRunQueryService implements RunQueryService {
   private readonly projects = new Map<string, ProjectRecord>();
   private readonly runs = new Map<string, RunRecord>();
@@ -459,6 +507,9 @@ export class PrismaRunQueryService implements RunQueryService {
     const run = await this.prisma.run.findUnique({
       where: { id: runId },
       include: {
+        tasks: {
+          orderBy: [{ completedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }]
+        },
         phases: {
           orderBy: [{ startedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }]
         }
@@ -478,16 +529,57 @@ export class PrismaRunQueryService implements RunQueryService {
       level: 'info'
     });
 
-    for (const phase of run.phases) {
-      const status = mapPhaseStatus(phase.status);
-      const level: LogLevel = status === 'failed' ? 'error' : status === 'running' ? 'warn' : 'info';
-      entries.push({
-        runId,
-        sequence: entries.length + 1,
-        timestamp: normalizeIso(phase.startedAt ?? phase.createdAt),
-        message: `phase ${phase.name.toLowerCase()} ${status}`,
-        level
-      });
+    let runtimeLogsFound = false;
+    for (const task of run.tasks) {
+      const timestamp = normalizeIso(task.completedAt ?? task.updatedAt ?? task.startedAt ?? task.createdAt);
+      const parsed = parseTaskExecutionResult(task.resultJson);
+      if (parsed.logs.length > 0 || parsed.stdoutLines.length > 0 || parsed.stderrLines.length > 0) {
+        runtimeLogsFound = true;
+      }
+
+      for (const message of parsed.logs) {
+        entries.push({
+          runId,
+          sequence: entries.length + 1,
+          timestamp,
+          message,
+          level: 'info'
+        });
+      }
+
+      for (const message of parsed.stdoutLines) {
+        entries.push({
+          runId,
+          sequence: entries.length + 1,
+          timestamp,
+          message,
+          level: 'info'
+        });
+      }
+
+      for (const message of parsed.stderrLines) {
+        entries.push({
+          runId,
+          sequence: entries.length + 1,
+          timestamp,
+          message,
+          level: 'error'
+        });
+      }
+    }
+
+    if (!runtimeLogsFound) {
+      for (const phase of run.phases) {
+        const status = mapPhaseStatus(phase.status);
+        const level: LogLevel = status === 'failed' ? 'error' : status === 'running' ? 'warn' : 'info';
+        entries.push({
+          runId,
+          sequence: entries.length + 1,
+          timestamp: normalizeIso(phase.startedAt ?? phase.createdAt),
+          message: `phase ${phase.name.toLowerCase()} ${status}`,
+          level
+        });
+      }
     }
 
     if (run.status === 'completed') {
@@ -507,6 +599,16 @@ export class PrismaRunQueryService implements RunQueryService {
         timestamp: normalizeIso(run.updatedAt),
         message: run.errorMessage?.trim() || 'run failed',
         level: 'error'
+      });
+    }
+
+    if (run.status === 'cancelled') {
+      entries.push({
+        runId,
+        sequence: entries.length + 1,
+        timestamp: normalizeIso(run.updatedAt),
+        message: run.errorMessage?.trim() || 'run cancelled',
+        level: 'warn'
       });
     }
 

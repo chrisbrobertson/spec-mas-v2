@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryRunQueryService } from '../src/runQueryService.js';
+import { InMemoryRunQueryService, parseTaskExecutionResult } from '../src/runQueryService.js';
 
 describe('run-query-service', () => {
   function createService() {
@@ -127,6 +127,32 @@ describe('run-query-service', () => {
       integrationBranches: ['specmas/run-1/integration', 'specmas/run-2/integration'],
       releaseBranches: ['specmas/run-1/release', 'specmas/run-2/release'],
       activeRunBranches: ['specmas/run-1/issue-101', 'specmas/run-2/issue-201']
+    });
+  });
+
+  it('parses persisted task execution payloads on happy and edge paths', () => {
+    const parsed = parseTaskExecutionResult(
+      JSON.stringify({
+        logs: ['log-1', 'log-2'],
+        stdout: 'line-a\nline-b\n',
+        stderr: 'warn-a\n'
+      })
+    );
+    expect(parsed).toEqual({
+      logs: ['log-1', 'log-2'],
+      stdoutLines: ['line-a', 'line-b'],
+      stderrLines: ['warn-a']
+    });
+
+    expect(parseTaskExecutionResult(JSON.stringify({ logs: ['ok', 42] }))).toEqual({
+      logs: [],
+      stdoutLines: [],
+      stderrLines: []
+    });
+    expect(parseTaskExecutionResult('{bad json')).toEqual({
+      logs: [],
+      stdoutLines: [],
+      stderrLines: []
     });
   });
 });

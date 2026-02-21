@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { PrismaClient, type PhaseStatus, type RunStatus, type TaskStatus } from '@prisma/client';
 
 type WorkflowPhaseMode = 'sequential' | 'parallel';
@@ -103,6 +105,7 @@ const RUNTIME_MODULES = [
   '../../../packages/runtime/dist/index.js',
   '../../../packages/runtime/src/index.js'
 ] as const;
+const ARTIFACT_ROOT = resolve(process.cwd(), 'artifacts', 'runs');
 
 function sanitize(value: string): string {
   return value
@@ -111,6 +114,13 @@ function sanitize(value: string): string {
     .replace(/[^a-z0-9]+/gu, '-')
     .replace(/^-+/u, '')
     .replace(/-+$/u, '');
+}
+
+async function writeArtifact(runId: string, relativePath: string, content: string): Promise<number> {
+  const outputPath = join(ARTIFACT_ROOT, runId, relativePath);
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, content, 'utf8');
+  return Buffer.byteLength(content, 'utf8');
 }
 
 function defaultWorkflowPhases(): Array<{
@@ -245,7 +255,15 @@ export class PrismaRunControlService implements RunControlService {
         status: 'running',
         startedAt,
         initiatedBy: input.initiatedBy ?? 'api',
-        specId: input.specId
+        specId: input.specId,
+        artifactPath: `artifacts/runs/${runIdHint(projectName, startedAt)}`
+      }
+    });
+
+    await this.prisma.run.update({
+      where: { id: run.id },
+      data: {
+        artifactPath: `artifacts/runs/${run.id}`
       }
     });
 
@@ -462,6 +480,17 @@ export class PrismaRunControlService implements RunControlService {
             const cancelledAfterExecution = state.cancelled;
             const taskStatus: TaskStatus =
               cancelledAfterExecution ? 'cancelled' : lifecycle.result.exitCode === 0 ? 'completed' : 'failed';
+            const executionJson = JSON.stringify({
+              taskKey,
+              sandboxId: lifecycle.sandboxId,
+              exitCode: lifecycle.result.exitCode,
+              stdout: lifecycle.result.stdout,
+              stderr: lifecycle.result.stderr,
+              logs: lifecycle.logs.map((entry) => entry.message),
+              completedAt: this.now().toISOString()
+            });
+
+            await this.persistTaskArtifacts(runId, binding, executionJson, lifecycle);
 
             await this.prisma.task.update({
               where: {
@@ -470,14 +499,7 @@ export class PrismaRunControlService implements RunControlService {
               data: {
                 status: taskStatus,
                 completedAt: this.now(),
-                resultJson: JSON.stringify({
-                  taskKey,
-                  sandboxId: lifecycle.sandboxId,
-                  exitCode: lifecycle.result.exitCode,
-                  stdout: lifecycle.result.stdout,
-                  stderr: lifecycle.result.stderr,
-                  logs: lifecycle.logs.map((entry) => entry.message)
-                })
+                resultJson: executionJson
               }
             });
 
@@ -567,6 +589,7 @@ export class PrismaRunControlService implements RunControlService {
           errorMessage: workflowResult.status === 'passed' ? null : 'workflow execution failed'
         }
       });
+      await this.persistRunSummaryArtifacts(runId, workflowResult.status);
     } catch (error) {
       if (!state.cancelled) {
         await this.prisma.run.update({
@@ -582,4 +605,101 @@ export class PrismaRunControlService implements RunControlService {
       this.activeRuns.delete(runId);
     }
   }
+
+  private async persistTaskArtifacts(
+    runId: string,
+    binding: TaskBinding,
+    executionJson: string,
+    lifecycle: RuntimeExecutionResult
+  ): Promise<void> {
+    const taskDir = `phases/${sanitize(binding.phaseKey) || 'phase'}/tasks/${sanitize(binding.taskLabel) || 'task'}`;
+    const stdoutPath = `${taskDir}/stdout.log`;
+    const stderrPath = `${taskDir}/stderr.log`;
+    const streamPath = `${taskDir}/runtime-stream.log`;
+    const executionPath = `${taskDir}/execution.json`;
+
+    const stdoutSize = await writeArtifact(runId, stdoutPath, lifecycle.result.stdout);
+    const stderrSize = await writeArtifact(runId, stderrPath, lifecycle.result.stderr);
+    const streamSize = await writeArtifact(
+      runId,
+      streamPath,
+      lifecycle.logs.map((entry) => entry.message).join('\n')
+    );
+    const executionSize = await writeArtifact(runId, executionPath, executionJson);
+
+    await this.prisma.artifact.createMany({
+      data: [
+        {
+          runId,
+          phaseId: binding.phaseDbId,
+          taskId: binding.taskDbId,
+          path: stdoutPath,
+          type: 'log',
+          sizeBytes: stdoutSize
+        },
+        {
+          runId,
+          phaseId: binding.phaseDbId,
+          taskId: binding.taskDbId,
+          path: stderrPath,
+          type: 'log',
+          sizeBytes: stderrSize
+        },
+        {
+          runId,
+          phaseId: binding.phaseDbId,
+          taskId: binding.taskDbId,
+          path: streamPath,
+          type: 'log',
+          sizeBytes: streamSize
+        },
+        {
+          runId,
+          phaseId: binding.phaseDbId,
+          taskId: binding.taskDbId,
+          path: executionPath,
+          type: 'json',
+          sizeBytes: executionSize
+        }
+      ]
+    });
+  }
+
+  private async persistRunSummaryArtifacts(runId: string, status: 'passed' | 'failed'): Promise<void> {
+    const gatePath = 'validation/gate-results.json';
+    const summaryPath = 'run-summary.md';
+    const gatePayload = JSON.stringify({
+      runId,
+      status,
+      gates: status === 'passed' ? ['G1', 'G2', 'G3', 'G4'] : ['G1']
+    });
+    const summaryPayload =
+      status === 'passed'
+        ? `# Run Summary\n\nRun \`${runId}\` completed successfully.`
+        : `# Run Summary\n\nRun \`${runId}\` failed.`;
+
+    const gateSize = await writeArtifact(runId, gatePath, gatePayload);
+    const summarySize = await writeArtifact(runId, summaryPath, summaryPayload);
+
+    await this.prisma.artifact.createMany({
+      data: [
+        {
+          runId,
+          path: gatePath,
+          type: 'json',
+          sizeBytes: gateSize
+        },
+        {
+          runId,
+          path: summaryPath,
+          type: 'md',
+          sizeBytes: summarySize
+        }
+      ]
+    });
+  }
+}
+
+function runIdHint(projectId: string, startedAt: Date): string {
+  return `${sanitize(projectId) || 'project'}-${startedAt.getTime()}`;
 }
