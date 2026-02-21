@@ -15,7 +15,7 @@ import {
   type AuthoringMode
 } from './sessionService.js';
 import { InMemoryAuthService } from './authService.js';
-import { listRuns, loadRun, loadRunArtifacts, loadRunLogs, loadRunLogsAfter, loadRunPhases } from './runReadModels.js';
+import { PrismaRunQueryService, type RunQueryService } from './runQueryService.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -34,6 +34,7 @@ export interface CreateServerOptions {
   sessionService?: InMemoryConversationSessionService;
   authService?: InMemoryAuthService;
   corsOrigin?: string | string[] | boolean;
+  runQueryService?: RunQueryService;
 }
 
 function getPermission(request: FastifyRequest): Permission | undefined {
@@ -70,9 +71,16 @@ export function createServer(options: CreateServerOptions = {}) {
       createDeterministicSessionClock()
     );
   const authService = options.authService ?? new InMemoryAuthService();
+  const runQueryService = options.runQueryService ?? new PrismaRunQueryService();
 
   const app = Fastify();
   app.register(cors, { origin: options.corsOrigin ?? 'http://localhost:3000' });
+
+  app.addHook('onClose', async () => {
+    if (runQueryService.close) {
+      await runQueryService.close();
+    }
+  });
 
   app.decorateRequest('requestCorrelationId', '');
   app.decorateRequest('requestStartTimeNs', 0n);
@@ -162,7 +170,7 @@ export function createServer(options: CreateServerOptions = {}) {
       }
     },
     async () => ({
-      runs: listRuns()
+      runs: await runQueryService.listRuns()
     })
   );
 
@@ -174,7 +182,7 @@ export function createServer(options: CreateServerOptions = {}) {
       }
     },
     async (request, reply) => {
-      const run = loadRun(request.params.runId);
+      const run = await runQueryService.loadRun(request.params.runId);
       if (!run) {
         reply.status(404).send({ error: `run not found: ${request.params.runId}` });
         return;
@@ -182,7 +190,7 @@ export function createServer(options: CreateServerOptions = {}) {
 
       return {
         run,
-        phases: loadRunPhases(request.params.runId)
+        phases: await runQueryService.loadRunPhases(request.params.runId)
       };
     }
   );
@@ -195,7 +203,7 @@ export function createServer(options: CreateServerOptions = {}) {
       }
     },
     async (request, reply) => {
-      const payload = loadRunArtifacts(request.params.runId);
+      const payload = await runQueryService.loadRunArtifacts(request.params.runId);
       if (!payload) {
         reply.status(404).send({ error: `artifacts not found: ${request.params.runId}` });
         return;
@@ -213,7 +221,7 @@ export function createServer(options: CreateServerOptions = {}) {
       }
     },
     async (request, reply) => {
-      const run = loadRun(request.params.runId);
+      const run = await runQueryService.loadRun(request.params.runId);
       if (!run) {
         reply.status(404).send({ error: `run not found: ${request.params.runId}` });
         return;
@@ -221,7 +229,7 @@ export function createServer(options: CreateServerOptions = {}) {
 
       return {
         runId: request.params.runId,
-        entries: loadRunLogs(request.params.runId)
+        entries: await runQueryService.loadRunLogs(request.params.runId)
       };
     }
   );
@@ -234,7 +242,7 @@ export function createServer(options: CreateServerOptions = {}) {
       }
     },
     async (request, reply) => {
-      const run = loadRun(request.params.runId);
+      const run = await runQueryService.loadRun(request.params.runId);
       if (!run) {
         reply.status(404).send({ error: `run not found: ${request.params.runId}` });
         return;
@@ -242,7 +250,7 @@ export function createServer(options: CreateServerOptions = {}) {
 
       const afterRaw = request.query?.after?.trim();
       if (!afterRaw) {
-        const entries = loadRunLogsAfter(request.params.runId, 0);
+        const entries = await runQueryService.loadRunLogsAfter(request.params.runId, 0);
         const payload = entries
           .map((entry) => `event: log\nid: ${entry.sequence}\ndata: ${JSON.stringify(entry)}\n\n`)
           .join('');
@@ -257,7 +265,7 @@ export function createServer(options: CreateServerOptions = {}) {
         return;
       }
 
-      const entries = loadRunLogsAfter(request.params.runId, parsedAfter);
+      const entries = await runQueryService.loadRunLogsAfter(request.params.runId, parsedAfter);
       const payload = entries
         .map((entry) => `event: log\nid: ${entry.sequence}\ndata: ${JSON.stringify(entry)}\n\n`)
         .join('');

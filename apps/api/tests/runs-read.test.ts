@@ -1,9 +1,79 @@
 import { describe, expect, it } from 'vitest';
+import { InMemoryRunQueryService } from '../src/runQueryService.js';
 import { createServer } from '../src/server.js';
 
 describe('runs read endpoints', () => {
+  function createRunQueryService() {
+    return new InMemoryRunQueryService([
+      {
+        run: {
+          id: 'run-2',
+          projectId: 'alpha',
+          status: 'running',
+          startedAt: '2026-02-20T00:00:00.000Z'
+        },
+        phases: [
+          {
+            id: 'phase-1',
+            runId: 'run-2',
+            name: 'Implement',
+            status: 'running'
+          },
+          {
+            id: 'phase-2',
+            runId: 'run-2',
+            name: 'Test',
+            status: 'pending'
+          }
+        ],
+        logs: [
+          {
+            runId: 'run-2',
+            sequence: 1,
+            timestamp: '2026-02-20T00:00:01.000Z',
+            message: 'run started',
+            level: 'info'
+          },
+          {
+            runId: 'run-2',
+            sequence: 2,
+            timestamp: '2026-02-20T00:00:02.000Z',
+            message: 'phase implement in progress',
+            level: 'warn'
+          },
+          {
+            runId: 'run-2',
+            sequence: 3,
+            timestamp: '2026-02-20T00:00:03.000Z',
+            message: 'tests queued',
+            level: 'info'
+          }
+        ],
+        artifacts: {
+          runId: 'run-2',
+          paths: ['validation/gate-results.json', 'run-summary.md', 'phases/test/coverage-report.html'],
+          contents: {
+            'validation/gate-results.json': JSON.stringify({ gates: ['G1', 'G2'], status: 'ok' }),
+            'run-summary.md': '# Run Summary',
+            'phases/test/coverage-report.html': '<html><head><title>Coverage</title></head><body>ok</body></html>'
+          }
+        }
+      },
+      {
+        run: {
+          id: 'run-1',
+          projectId: 'alpha',
+          status: 'passed',
+          startedAt: '2026-02-19T00:00:00.000Z'
+        }
+      }
+    ]);
+  }
+
   it('returns runs list and run detail on happy path', async () => {
-    const app = createServer();
+    const app = createServer({
+      runQueryService: createRunQueryService()
+    });
 
     const listResponse = await app.inject({
       method: 'GET',
@@ -35,7 +105,9 @@ describe('runs read endpoints', () => {
   });
 
   it('returns run artifacts and logs for known runs', async () => {
-    const app = createServer();
+    const app = createServer({
+      runQueryService: createRunQueryService()
+    });
 
     const artifactsResponse = await app.inject({
       method: 'GET',
@@ -82,7 +154,9 @@ describe('runs read endpoints', () => {
   });
 
   it('returns edge-case errors for missing runs and missing roles', async () => {
-    const app = createServer();
+    const app = createServer({
+      runQueryService: createRunQueryService()
+    });
 
     const missingRunResponse = await app.inject({
       method: 'GET',
