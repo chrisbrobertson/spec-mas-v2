@@ -1,16 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { buildRunDetailView, buildRunListView, type PhaseRecord, type RunRecord } from '../src/runViews.js';
+import {
+  buildRunDetailView,
+  buildRunListView,
+  filterRunsByProjectAndBranch,
+  type PhaseRecord,
+  type RunRecord
+} from '../src/runViews.js';
 
 describe('run-views', () => {
   it('builds deterministic run list and detail timeline views', () => {
     const runs: RunRecord[] = [
-      { id: 'run-2', projectId: 'alpha', status: 'running', startedAt: '2026-02-20T00:00:00.000Z' },
-      { id: 'run-1', projectId: 'alpha', status: 'passed', startedAt: '2026-02-19T00:00:00.000Z' }
+      {
+        id: 'run-2',
+        projectId: 'alpha',
+        status: 'running',
+        startedAt: '2026-02-20T00:00:00.000Z',
+        sourceBranch: 'main',
+        workingBranch: 'specmas/run-2/issue-201',
+        integrationBranch: 'specmas/run-2/integration',
+        releaseBranch: 'specmas/run-2/release',
+        mergeStatus: 'awaiting_human_approval'
+      },
+      {
+        id: 'run-1',
+        projectId: 'alpha',
+        status: 'passed',
+        startedAt: '2026-02-19T00:00:00.000Z',
+        sourceBranch: 'main',
+        workingBranch: 'specmas/run-1/issue-101',
+        integrationBranch: 'specmas/run-1/integration',
+        releaseBranch: 'specmas/run-1/release',
+        mergeStatus: 'awaiting_human_approval'
+      }
     ];
 
     const list = buildRunListView(runs);
     expect(list.map((item) => item.id)).toEqual(['run-2', 'run-1']);
     expect(list[0].badge).toEqual({ label: 'Running', tone: 'active' });
+    expect(list[0].workingBranch).toBe('specmas/run-2/issue-201');
 
     const phases: PhaseRecord[] = [
       { id: 'ph-2', runId: 'run-2', name: 'test', status: 'pending', sequence: 2 },
@@ -33,7 +60,12 @@ describe('run-views', () => {
       id: 'run-1',
       projectId: 'alpha',
       status: 'running',
-      startedAt: '2026-02-19T00:00:00.000Z'
+      startedAt: '2026-02-19T00:00:00.000Z',
+      sourceBranch: 'main',
+      workingBranch: 'specmas/run-1/issue-101',
+      integrationBranch: 'specmas/run-1/integration',
+      releaseBranch: 'specmas/run-1/release',
+      mergeStatus: 'awaiting_human_approval'
     };
     const phases: PhaseRecord[] = [
       { id: 'ph-1', runId: 'run-1', name: 'implement', status: 'running', sequence: 1 },
@@ -48,7 +80,12 @@ describe('run-views', () => {
       id: 'run-1',
       projectId: 'alpha',
       status: 'queued',
-      startedAt: '2026-02-19T00:00:00.000Z'
+      startedAt: '2026-02-19T00:00:00.000Z',
+      sourceBranch: 'main',
+      workingBranch: 'specmas/run-1/issue-101',
+      integrationBranch: 'specmas/run-1/integration',
+      releaseBranch: 'specmas/run-1/release',
+      mergeStatus: 'awaiting_human_approval'
     };
 
     const detail = buildRunDetailView(run, []);
@@ -60,5 +97,38 @@ describe('run-views', () => {
       failed: 0,
       skipped: 0
     });
+  });
+
+  it('filters runs by project and branch selectors', () => {
+    const runs: RunRecord[] = [
+      {
+        id: 'run-2',
+        projectId: 'alpha',
+        status: 'running',
+        startedAt: '2026-02-20T00:00:00.000Z',
+        sourceBranch: 'main',
+        workingBranch: 'specmas/run-2/issue-201',
+        integrationBranch: 'specmas/run-2/integration',
+        releaseBranch: 'specmas/run-2/release',
+        mergeStatus: 'awaiting_human_approval'
+      },
+      {
+        id: 'run-3',
+        projectId: 'beta',
+        status: 'passed',
+        startedAt: '2026-02-21T00:00:00.000Z',
+        sourceBranch: 'develop',
+        workingBranch: 'specmas/run-3/issue-300',
+        integrationBranch: 'specmas/run-3/integration',
+        releaseBranch: 'specmas/run-3/release',
+        mergeStatus: 'approved'
+      }
+    ];
+
+    expect(filterRunsByProjectAndBranch(runs, 'alpha', undefined).map((run) => run.id)).toEqual(['run-2']);
+    expect(filterRunsByProjectAndBranch(runs, 'beta', 'specmas/run-3/release').map((run) => run.id)).toEqual([
+      'run-3'
+    ]);
+    expect(filterRunsByProjectAndBranch(runs, undefined, 'all').map((run) => run.id)).toEqual(['run-2', 'run-3']);
   });
 });

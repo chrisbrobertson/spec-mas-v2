@@ -13,21 +13,22 @@ function normalizePathname(pathname: string): string {
   return pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 }
 
-export function materializeRoutePath(templatePath: string, runId = 'run-2'): string {
-  return templatePath.replaceAll(':runId', runId);
+export function materializeRoutePath(templatePath: string, runId = 'run-2', projectId = 'alpha'): string {
+  return templatePath.replaceAll(':projectId', projectId).replaceAll(':runId', runId);
 }
 
-export function materializeRoutes(routes: DashboardRoute[], runId = 'run-2'): DashboardRoute[] {
+export function materializeRoutes(routes: DashboardRoute[], runId = 'run-2', projectId = 'alpha'): DashboardRoute[] {
   return routes.map((route) => ({
     ...route,
-    path: materializeRoutePath(route.path, runId)
+    path: materializeRoutePath(route.path, runId, projectId)
   }));
 }
 
 export function resolveRoute(pathname: string): ResolvedRoute | undefined {
   const normalized = normalizePathname(pathname);
 
-  if (normalized === '/runs') {
+  const runsMatch = normalized.match(/^\/projects\/([^/]+)\/runs$/);
+  if (runsMatch) {
     return { key: 'runs' };
   }
 
@@ -35,17 +36,17 @@ export function resolveRoute(pathname: string): ResolvedRoute | undefined {
     return { key: 'authoring' };
   }
 
-  const artifactsMatch = normalized.match(/^\/runs\/([^/]+)\/artifacts$/);
+  const artifactsMatch = normalized.match(/^\/projects\/[^/]+\/runs\/([^/]+)\/artifacts$/);
   if (artifactsMatch) {
     return { key: 'artifacts', runId: artifactsMatch[1] };
   }
 
-  const logsMatch = normalized.match(/^\/runs\/([^/]+)\/logs$/);
+  const logsMatch = normalized.match(/^\/projects\/[^/]+\/runs\/([^/]+)\/logs$/);
   if (logsMatch) {
     return { key: 'log-stream', runId: logsMatch[1] };
   }
 
-  const detailMatch = normalized.match(/^\/runs\/([^/]+)$/);
+  const detailMatch = normalized.match(/^\/projects\/[^/]+\/runs\/([^/]+)$/);
   if (detailMatch) {
     return { key: 'run-detail', runId: detailMatch[1] };
   }

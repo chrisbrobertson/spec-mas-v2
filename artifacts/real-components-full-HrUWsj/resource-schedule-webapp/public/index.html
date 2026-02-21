@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resource Schedule</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #4b5563;
+        --accent: #0b7285;
+        --danger: #b42318;
+        --border: #d1d5db;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at 10% 0%, #e6fcf5, var(--bg) 45%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 1050px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+
+      h1 { margin-top: 0; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+      }
+
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.9rem;
+      }
+
+      form {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      input, select, button {
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        padding: 0.45rem;
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+        border-color: transparent;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      button.danger {
+        background: var(--danger);
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      li {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-top: 0.45rem;
+        padding: 0.5rem;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      #message {
+        min-height: 1.4rem;
+        margin-bottom: 0.6rem;
+      }
+
+      @media (max-width: 700px) {
+        .row { flex-direction: column; align-items: stretch; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Office Resource Scheduler</h1>
+      <p id="message" class="muted"></p>
+
+      <div class="grid">
+        <section>
+          <h2>Add Room</h2>
+          <form id="roomForm">
+            <input id="roomName" placeholder="Room name" required />
+            <button type="submit">Add Room</button>
+          </form>
+          <ul id="roomList"></ul>
+        </section>
+
+        <section>
+          <h2>Add Equipment</h2>
+          <form id="equipmentForm">
+            <input id="equipmentName" placeholder="Equipment name" required />
+            <button type="submit">Add Equipment</button>
+          </form>
+          <ul id="equipmentList"></ul>
+        </section>
+      </div>
+
+      <section>
+        <h2>Schedule Resource</h2>
+        <form id="scheduleForm">
+          <div class="grid">
+            <select id="scheduleType" required>
+              <option value="room">Room</option>
+              <option value="equipment">Equipment</option>
+            </select>
+            <select id="resourceId" required></select>
+            <input id="scheduleTitle" placeholder="Purpose" required />
+            <input id="startTime" type="datetime-local" required />
+            <input id="endTime" type="datetime-local" required />
+          </div>
+          <button type="submit">Create Schedule</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Schedule Entries</h2>
+        <ul id="scheduleList"></ul>
+      </section>
+    </main>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>

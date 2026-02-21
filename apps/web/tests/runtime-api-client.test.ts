@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, createApiClient, parseSseLogPayload } from '../src/runtime/apiClient.js';
+import { createApiClient, parseSseLogPayload } from '../src/runtime/apiClient.js';
 
 describe('runtime-api-client', () => {
   afterEach(() => {
@@ -8,9 +8,26 @@ describe('runtime-api-client', () => {
 
   it('fetches typed run data on happy path', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ runs: [{ id: 'run-2', projectId: 'alpha', status: 'running', startedAt: 'x' }] }), {
-        status: 200
-      })
+      new Response(
+        JSON.stringify({
+          runs: [
+            {
+              id: 'run-2',
+              projectId: 'alpha',
+              status: 'running',
+              startedAt: 'x',
+              sourceBranch: 'main',
+              workingBranch: 'specmas/run-2/issue-201',
+              integrationBranch: 'specmas/run-2/integration',
+              releaseBranch: 'specmas/run-2/release',
+              mergeStatus: 'awaiting_human_approval'
+            }
+          ]
+        }),
+        {
+          status: 200
+        }
+      )
     );
 
     const client = createApiClient('http://localhost:3100');
@@ -187,5 +204,65 @@ describe('runtime-api-client', () => {
 
     expect(response.delivered).toBe(1);
     expect(response.entries[0]?.sequence).toBe(3);
+  });
+
+  it('fetches projects and branch inventories', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            projects: [
+              {
+                projectId: 'alpha',
+                name: 'Alpha Service',
+                repoUrl: 'https://github.com/specmas/alpha',
+                defaultBranch: 'main',
+                activeRunCount: 1
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            projectId: 'alpha',
+            defaultBranch: 'main',
+            integrationBranches: ['specmas/run-2/integration'],
+            releaseBranches: ['specmas/run-2/release'],
+            activeRunBranches: ['specmas/run-2/issue-201']
+          }),
+          { status: 200 }
+        )
+      );
+
+    const client = createApiClient('http://localhost:3100');
+    const projects = await client.getProjects();
+    const branches = await client.getProjectBranches('alpha');
+
+    expect(projects.projects).toHaveLength(1);
+    expect(branches.defaultBranch).toBe('main');
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://localhost:3100/projects', expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://localhost:3100/projects/alpha/branches', expect.any(Object));
+  });
+
+  it('updates merge approval state through API', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          runId: 'run-1',
+          status: 'approved',
+          updatedAt: '2026-02-21T00:00:00.000Z'
+        }),
+        { status: 200 }
+      )
+    );
+
+    const client = createApiClient('http://localhost:3100', { role: 'operator' });
+    const response = await client.updateMergeApproval('run-1', 'approve');
+
+    expect(response.status).toBe('approved');
   });
 });

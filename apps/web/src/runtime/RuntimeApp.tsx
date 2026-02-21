@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { createDashboardShell, createRouteSkeleton, type DashboardState } from '../app.js';
 import { buildArtifactTree, renderArtifactPreview } from '../artifactExplorer.js';
 import {
@@ -14,6 +14,7 @@ import {
 import { LiveLogStreamModel, type LogStreamState } from '../logStream.js';
 import { buildRunDetailView, buildRunListView, type RunRecord } from '../runViews.js';
 import { createApiClient } from './apiClient.js';
+import type { ProjectBranchesResponse, ProjectRecord } from './apiClient.js';
 import {
   AUTH_SESSION_STORAGE_KEY,
   canWriteSessions,
@@ -33,7 +34,7 @@ import { materializeRoutes } from './routes.js';
 const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 const SESSION_EXPIRED_EVENT = 'specmas.auth.session.expired';
 const AUTHORING_SESSION_STORAGE_KEY = 'specmas.authoring.session-id';
-const NAV_ROUTES = materializeRoutes(createRouteSkeleton());
+const SELECTED_PROJECT_STORAGE_KEY = 'specmas.selected.project';
 
 function isBrowserEnvironment(): boolean {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -106,6 +107,42 @@ function persistAuthoringSessionId(sessionId: string): void {
   localStorage.setItem(AUTHORING_SESSION_STORAGE_KEY, sessionId);
 }
 
+function projectBranchStorageKey(projectId: string): string {
+  return `specmas.selected.branch.${projectId}`;
+}
+
+function readStoredProjectId(): string | undefined {
+  if (!isBrowserEnvironment()) {
+    return undefined;
+  }
+  const value = localStorage.getItem(SELECTED_PROJECT_STORAGE_KEY);
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function persistProjectId(projectId: string): void {
+  if (!isBrowserEnvironment()) {
+    return;
+  }
+  localStorage.setItem(SELECTED_PROJECT_STORAGE_KEY, projectId);
+}
+
+function readStoredProjectBranch(projectId: string): string | undefined {
+  if (!isBrowserEnvironment()) {
+    return undefined;
+  }
+  const value = localStorage.getItem(projectBranchStorageKey(projectId));
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function persistProjectBranch(projectId: string, branch: string): void {
+  if (!isBrowserEnvironment()) {
+    return;
+  }
+  localStorage.setItem(projectBranchStorageKey(projectId), branch);
+}
+
 const runtimeApiClient = createApiClient(API_BASE_URL, {
   tokenProvider: readStoredAccessToken,
   onUnauthorized: () => {
@@ -152,7 +189,12 @@ function formatLogState(state: LogStreamState): string {
   return `connected=${state.connected} reconnects=${state.reconnectCount} last=${state.lastSequence} seq=[${sequences}]`;
 }
 
-function RunsPage() {
+interface RunsPageProps {
+  projectId: string;
+  branchFilter: string;
+}
+
+function RunsPage({ projectId, branchFilter }: RunsPageProps) {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -162,7 +204,10 @@ function RunsPage() {
 
     void (async () => {
       try {
-        const response = await runtimeApiClient.getRuns();
+        const response = await runtimeApiClient.getRuns({
+          projectId,
+          branch: branchFilter === 'all' ? undefined : branchFilter
+        });
         if (!active) {
           return;
         }
@@ -183,7 +228,7 @@ function RunsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [projectId, branchFilter]);
 
   if (loading) {
     return (
@@ -213,7 +258,13 @@ function RunsPage() {
       <ul>
         {runItems.map((item) => (
           <li key={item.id}>
-            <strong>{item.id}</strong> {item.badge.label} ({item.projectId}) <Link to={`/runs/${item.id}`}>Open</Link>
+            <strong>{item.id}</strong> {item.badge.label} ({item.projectId})
+            {' | '}
+            Branch: {item.workingBranch}
+            {' | '}
+            Merge: {item.mergeStatus}
+            {' | '}
+            <Link to={`/projects/${projectId}/runs/${item.id}`}>Open</Link>
           </li>
         ))}
       </ul>
@@ -221,10 +272,17 @@ function RunsPage() {
   );
 }
 
-function RunDetailPage() {
-  const params = useParams<{ runId: string }>();
+interface RunDetailPageProps {
+  role: AuthSessionRecord['role'];
+}
+
+function RunDetailPage({ role }: RunDetailPageProps) {
+  const params = useParams<{ runId: string; projectId: string }>();
+  const projectId = params.projectId ?? '';
   const runId = params.runId ?? '';
   const [detail, setDetail] = useState<ReturnType<typeof buildRunDetailView> | null>(null);
+  const [mergeStatus, setMergeStatus] = useState<string>('');
+  const [mergeError, setMergeError] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -238,6 +296,7 @@ function RunDetailPage() {
           return;
         }
         setDetail(buildRunDetailView(response.run, response.phases));
+        setMergeStatus(response.run.mergeStatus);
         setError('');
       } catch (caughtError) {
         if (!active) {
@@ -255,6 +314,18 @@ function RunDetailPage() {
       active = false;
     };
   }, [runId]);
+
+  const canUpdateMerge = role === 'admin' || role === 'operator';
+
+  const transitionMerge = async (action: 'approve' | 'reject' | 'merge') => {
+    try {
+      const response = await runtimeApiClient.updateMergeApproval(runId, action);
+      setMergeStatus(response.status);
+      setMergeError('');
+    } catch (caughtError) {
+      setMergeError(caughtError instanceof Error ? caughtError.message : 'Failed to update merge approval');
+    }
+  };
 
   if (loading) {
     return (
@@ -283,7 +354,27 @@ function RunDetailPage() {
         <strong>{detail.runId}</strong> {detail.badge.label}
       </p>
       <p>
-        <Link to={`/runs/${detail.runId}/artifacts`}>Artifacts</Link> | <Link to={`/runs/${detail.runId}/logs`}>Logs</Link>
+        Project: <strong>{detail.projectId}</strong> | Source: <strong>{detail.sourceBranch}</strong> | Working:{' '}
+        <strong>{detail.workingBranch}</strong>
+      </p>
+      <p>
+        Merge status: <strong>{mergeStatus || detail.mergeStatus}</strong>
+      </p>
+      <div className="stack">
+        <button type="button" disabled={!canUpdateMerge} onClick={() => void transitionMerge('approve')}>
+          Approve Merge
+        </button>
+        <button type="button" disabled={!canUpdateMerge} onClick={() => void transitionMerge('reject')}>
+          Reject Merge
+        </button>
+        <button type="button" disabled={!canUpdateMerge} onClick={() => void transitionMerge('merge')}>
+          Merge Branch
+        </button>
+      </div>
+      {mergeError ? <p className="error">{mergeError}</p> : null}
+      <p>
+        <Link to={`/projects/${projectId}/runs/${detail.runId}/artifacts`}>Artifacts</Link> |{' '}
+        <Link to={`/projects/${projectId}/runs/${detail.runId}/logs`}>Logs</Link>
       </p>
       {emptyState ? <p>{emptyState}</p> : null}
       <ol>
@@ -686,10 +777,27 @@ function LoginScreen({ notice, onLoggedIn }: LoginScreenProps) {
   );
 }
 
+function LegacyRunRedirect({ selectedProjectId, suffix }: { selectedProjectId: string; suffix: string }) {
+  const params = useParams<{ runId: string }>();
+  const runId = params.runId ?? 'run-2';
+  return <Navigate to={`/projects/${selectedProjectId}/runs/${runId}${suffix}`} replace />;
+}
+
+function RunsRoute({ selectedBranch }: { selectedBranch: string }) {
+  const params = useParams<{ projectId: string }>();
+  const projectId = params.projectId ?? 'alpha';
+  return <RunsPage projectId={projectId} branchFilter={selectedBranch} />;
+}
+
 export function RuntimeApp() {
+  const navigate = useNavigate();
   const [dashboardState, refreshHealth] = useDashboardState();
   const [authSession, setAuthSession] = useState<AuthSessionRecord | undefined>(() => readStoredAuthSession());
   const [authNotice, setAuthNotice] = useState(authSession ? '' : 'Please sign in.');
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [projectBranches, setProjectBranches] = useState<ProjectBranchesResponse | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -742,13 +850,108 @@ export function RuntimeApp() {
     setAuthNotice('Signed out.');
   };
 
+  useEffect(() => {
+    if (!authSession) {
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getProjects();
+        if (!active) {
+          return;
+        }
+        setProjects(response.projects);
+
+        const storedProjectId = readStoredProjectId();
+        const projectId =
+          (storedProjectId && response.projects.some((project) => project.projectId === storedProjectId)
+            ? storedProjectId
+            : response.projects[0]?.projectId) ?? '';
+
+        if (projectId) {
+          persistProjectId(projectId);
+        }
+        setSelectedProjectId(projectId);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setProjects([]);
+        setSelectedProjectId('');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [authSession]);
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setProjectBranches(null);
+      setSelectedBranch('all');
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getProjectBranches(selectedProjectId);
+        if (!active) {
+          return;
+        }
+        setProjectBranches(response);
+        const storedBranch = readStoredProjectBranch(selectedProjectId);
+        const options = new Set<string>([
+          'all',
+          response.defaultBranch,
+          ...response.activeRunBranches,
+          ...response.integrationBranches,
+          ...response.releaseBranches
+        ]);
+        const branch = storedBranch && options.has(storedBranch) ? storedBranch : 'all';
+        setSelectedBranch(branch);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setProjectBranches(null);
+        setSelectedBranch('all');
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedProjectId]);
+
   if (!authSession) {
     return <LoginScreen notice={authNotice} onLoggedIn={handleLoggedIn} />;
   }
 
+  if (!selectedProjectId) {
+    return (
+      <main className="layout">
+        <header>
+          <h1>Spec-MAS Dashboard</h1>
+          <p>Loading projects...</p>
+        </header>
+      </main>
+    );
+  }
+
+  const selectedProject = projects.find((project) => project.projectId === selectedProjectId);
   const navRoutes = canWriteSessions(authSession.role)
-    ? NAV_ROUTES
-    : NAV_ROUTES.filter((route) => route.key !== 'authoring');
+    ? materializeRoutes(createRouteSkeleton(), 'run-2', selectedProjectId || 'alpha')
+    : materializeRoutes(createRouteSkeleton(), 'run-2', selectedProjectId || 'alpha').filter(
+        (route) => route.key !== 'authoring'
+      );
+
+  const availableBranches = projectBranches
+    ? ['all', projectBranches.defaultBranch, ...projectBranches.activeRunBranches, ...projectBranches.integrationBranches, ...projectBranches.releaseBranches]
+    : ['all'];
 
   return (
     <main className="layout">
@@ -760,6 +963,48 @@ export function RuntimeApp() {
         <p>
           User: <strong>{authSession.displayName}</strong> ({authSession.role}) | Expires: {authSession.expiresAt}
         </p>
+        <p>
+          Project: <strong>{(selectedProject?.name ?? selectedProjectId) || 'none'}</strong> | Repo:{' '}
+          <strong>{selectedProject?.repoUrl ?? '-'}</strong> | Default branch:{' '}
+          <strong>{selectedProject?.defaultBranch ?? '-'}</strong>
+        </p>
+        <label>
+          Project/Repo
+          <select
+            value={selectedProjectId}
+            onChange={(event) => {
+              const projectId = event.target.value;
+              setSelectedProjectId(projectId);
+              persistProjectId(projectId);
+              navigate(`/projects/${projectId}/runs`);
+            }}
+          >
+            {projects.map((project) => (
+              <option key={project.projectId} value={project.projectId}>
+                {project.name} ({project.repoUrl})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Branch
+          <select
+            value={selectedBranch}
+            onChange={(event) => {
+              const branch = event.target.value;
+              setSelectedBranch(branch);
+              if (selectedProjectId) {
+                persistProjectBranch(selectedProjectId, branch);
+              }
+            }}
+          >
+            {availableBranches.map((branch) => (
+              <option key={branch} value={branch}>
+                {branch}
+              </option>
+            ))}
+          </select>
+        </label>
         <p>Last check: {dashboardState.lastHealthCheckAt ?? 'never'}</p>
         <button type="button" onClick={() => void refreshHealth()}>
           Refresh Health
@@ -778,13 +1023,29 @@ export function RuntimeApp() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Navigate to="/runs" replace />} />
-        <Route path="/runs" element={<RunsPage />} />
-        <Route path="/runs/:runId" element={<RunDetailPage />} />
-        <Route path="/runs/:runId/artifacts" element={<ArtifactsPage />} />
-        <Route path="/runs/:runId/logs" element={<LogStreamPage />} />
+        <Route path="/" element={<Navigate to={`/projects/${selectedProjectId || 'alpha'}/runs`} replace />} />
+        <Route
+          path="/projects/:projectId/runs"
+          element={<RunsRoute selectedBranch={selectedBranch} />}
+        />
+        <Route path="/projects/:projectId/runs/:runId" element={<RunDetailPage role={authSession.role} />} />
+        <Route path="/projects/:projectId/runs/:runId/artifacts" element={<ArtifactsPage />} />
+        <Route path="/projects/:projectId/runs/:runId/logs" element={<LogStreamPage />} />
+        <Route path="/runs" element={<Navigate to={`/projects/${selectedProjectId || 'alpha'}/runs`} replace />} />
+        <Route
+          path="/runs/:runId"
+          element={<LegacyRunRedirect selectedProjectId={selectedProjectId || 'alpha'} suffix="" />}
+        />
+        <Route
+          path="/runs/:runId/artifacts"
+          element={<LegacyRunRedirect selectedProjectId={selectedProjectId || 'alpha'} suffix="/artifacts" />}
+        />
+        <Route
+          path="/runs/:runId/logs"
+          element={<LegacyRunRedirect selectedProjectId={selectedProjectId || 'alpha'} suffix="/logs" />}
+        />
         <Route path="/authoring" element={<AuthoringPage role={authSession.role} />} />
-        <Route path="*" element={<Navigate to="/runs" replace />} />
+        <Route path="*" element={<Navigate to={`/projects/${selectedProjectId || 'alpha'}/runs`} replace />} />
       </Routes>
     </main>
   );

@@ -2,12 +2,12 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './apps/web/tests-e2e',
-  timeout: 30_000,
+  timeout: 60_000,
   expect: {
-    timeout: 5_000
+    timeout: 10_000
   },
   use: {
-    baseURL: 'http://127.0.0.1:4173'
+    baseURL: 'http://localhost:3000'
   },
   projects: [
     {
@@ -16,9 +16,10 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: 'corepack pnpm --filter @specmas/web build && python3 -m http.server 4173',
-    port: 4173,
+    command:
+      'DATABASE_URL=${DATABASE_URL:-file:./specmas.db} corepack pnpm db:bootstrap && DATABASE_URL=${DATABASE_URL:-file:./specmas.db} corepack pnpm dev:full',
+    url: 'http://localhost:3000',
     reuseExistingServer: true,
-    timeout: 120_000
+    timeout: 180_000
   }
 });

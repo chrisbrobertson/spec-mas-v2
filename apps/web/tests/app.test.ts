@@ -19,10 +19,10 @@ describe('web shell', () => {
     expect(createInitialDashboardState()).toEqual({
       apiHealthy: false,
       routes: [
-        { key: 'runs', path: '/runs', title: 'Runs' },
-        { key: 'run-detail', path: '/runs/:runId', title: 'Run Detail' },
-        { key: 'artifacts', path: '/runs/:runId/artifacts', title: 'Artifact Explorer' },
-        { key: 'log-stream', path: '/runs/:runId/logs', title: 'Live Log Stream' },
+        { key: 'runs', path: '/projects/:projectId/runs', title: 'Runs' },
+        { key: 'run-detail', path: '/projects/:projectId/runs/:runId', title: 'Run Detail' },
+        { key: 'artifacts', path: '/projects/:projectId/runs/:runId/artifacts', title: 'Artifact Explorer' },
+        { key: 'log-stream', path: '/projects/:projectId/runs/:runId/logs', title: 'Live Log Stream' },
         { key: 'authoring', path: '/authoring', title: 'Spec Authoring' }
       ],
       lastHealthCheckAt: null

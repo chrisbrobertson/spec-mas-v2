@@ -1,9 +1,33 @@
 import type { LogEntry } from '../logStream.js';
-import type { PhaseRecord, RunRecord } from '../runViews.js';
+import type { MergeStatus, PhaseRecord, RunRecord } from '../runViews.js';
 import type { UserRole } from './authSession.js';
 
 export interface RunsResponse {
   runs: RunRecord[];
+}
+
+export interface ProjectRecord {
+  projectId: string;
+  name: string;
+  repoUrl: string;
+  defaultBranch: string;
+  activeRunCount: number;
+}
+
+export interface ProjectsResponse {
+  projects: ProjectRecord[];
+}
+
+export interface ProjectResponse {
+  project: ProjectRecord;
+}
+
+export interface ProjectBranchesResponse {
+  projectId: string;
+  defaultBranch: string;
+  integrationBranches: string[];
+  releaseBranches: string[];
+  activeRunBranches: string[];
 }
 
 export interface RunDetailResponse {
@@ -25,6 +49,12 @@ export interface RunLogsResponse {
 export interface RunLogStreamResponse {
   entries: LogEntry[];
   delivered: number;
+}
+
+export interface MergeApprovalResponse {
+  runId: string;
+  status: MergeStatus;
+  updatedAt: string;
 }
 
 export type AuthoringMode = 'guided' | 'edit' | 'freeform';
@@ -232,10 +262,52 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
         options.onUnauthorized
       );
     },
-    getRuns() {
+    getRuns(input?: { projectId?: string; branch?: string }) {
+      const query = new URLSearchParams();
+      if (input?.projectId) {
+        query.set('projectId', input.projectId);
+      }
+      if (input?.branch && input.branch !== 'all') {
+        query.set('branch', input.branch);
+      }
+
+      const path = query.size > 0 ? `/runs?${query.toString()}` : '/runs';
       return requestJson<RunsResponse>(
         baseUrl,
-        '/runs',
+        path,
+        { method: 'GET' },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
+    },
+    getProjects() {
+      return requestJson<ProjectsResponse>(
+        baseUrl,
+        '/projects',
+        { method: 'GET' },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
+    },
+    getProject(projectId: string) {
+      return requestJson<ProjectResponse>(
+        baseUrl,
+        `/projects/${projectId}`,
+        { method: 'GET' },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
+    },
+    getProjectBranches(projectId: string) {
+      return requestJson<ProjectBranchesResponse>(
+        baseUrl,
+        `/projects/${projectId}/branches`,
         { method: 'GET' },
         role,
         getToken(),
@@ -287,6 +359,31 @@ export function createApiClient(baseUrl: string, options: ApiClientOptions = {})
         options.onUnauthorized
       );
       return parseSseLogPayload(payload);
+    },
+    getMergeApproval(runId: string) {
+      return requestJson<MergeApprovalResponse>(
+        baseUrl,
+        `/runs/${runId}/merge-approval`,
+        { method: 'GET' },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
+    },
+    updateMergeApproval(runId: string, action: 'approve' | 'reject' | 'merge') {
+      return requestJson<MergeApprovalResponse>(
+        baseUrl,
+        `/runs/${runId}/merge-approval`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action })
+        },
+        role,
+        getToken(),
+        useRoleHeaderFallback,
+        options.onUnauthorized
+      );
     },
     createSession(input: CreateSessionInput) {
       return requestJson<SessionRecord>(

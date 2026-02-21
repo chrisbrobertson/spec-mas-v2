@@ -74,13 +74,14 @@ DATABASE_URL=file:./specmas.db corepack pnpm db:bootstrap
   - SQLite file exists (for file-based URLs),
   - all local migrations are applied before API starts listening.
 
-### Team Deployment Profile
+### Third-Party Services Profile
 ```bash
 docker compose -f docs/release/docker-compose.team.yml up -d
 ```
 
-- Reverse proxy + web entrypoint: `http://localhost:3000`
-- API via proxy: `http://localhost:3000/api/health`
+- Spec-MAS app services still run as local npm processes (`corepack pnpm dev:full`)
+- Web app (local npm): `http://localhost:3000`
+- API (local npm): `http://localhost:3100/health`
 - SQLite web (optional): `http://localhost:8080`
 - Mailhog UI (optional): `http://localhost:8025`
 

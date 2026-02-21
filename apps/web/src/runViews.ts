@@ -1,11 +1,17 @@
 export type RunStatus = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
 export type PhaseStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
+export type MergeStatus = 'awaiting_human_approval' | 'approved' | 'rejected' | 'merged';
 
 export interface RunRecord {
   id: string;
   projectId: string;
   status: RunStatus;
   startedAt: string;
+  sourceBranch: string;
+  workingBranch: string;
+  integrationBranch: string;
+  releaseBranch: string;
+  mergeStatus: MergeStatus;
 }
 
 export interface PhaseRecord {
@@ -25,12 +31,19 @@ export interface RunListItem {
   id: string;
   projectId: string;
   startedAt: string;
+  workingBranch: string;
+  mergeStatus: MergeStatus;
   badge: StatusBadge;
 }
 
 export interface RunDetailView {
   runId: string;
   projectId: string;
+  sourceBranch: string;
+  workingBranch: string;
+  integrationBranch: string;
+  releaseBranch: string;
+  mergeStatus: MergeStatus;
   badge: StatusBadge;
   timeline: Array<{
     phaseId: string;
@@ -80,6 +93,8 @@ export function buildRunListView(runs: RunRecord[]): RunListItem[] {
     id: run.id,
     projectId: run.projectId,
     startedAt: run.startedAt,
+    workingBranch: run.workingBranch,
+    mergeStatus: run.mergeStatus,
     badge: RUN_BADGES[run.status]
   }));
 }
@@ -125,8 +140,34 @@ export function buildRunDetailView(run: RunRecord, phases: PhaseRecord[]): RunDe
   return {
     runId: run.id,
     projectId: run.projectId,
+    sourceBranch: run.sourceBranch,
+    workingBranch: run.workingBranch,
+    integrationBranch: run.integrationBranch,
+    releaseBranch: run.releaseBranch,
+    mergeStatus: run.mergeStatus,
     badge: RUN_BADGES[run.status],
     timeline,
     phaseCounts: buildPhaseCounts(runPhases)
   };
+}
+
+export function filterRunsByProjectAndBranch(
+  runs: RunRecord[],
+  projectId: string | undefined,
+  branch: string | undefined
+): RunRecord[] {
+  return runs.filter((run) => {
+    if (projectId && run.projectId !== projectId) {
+      return false;
+    }
+    if (!branch || branch === 'all') {
+      return true;
+    }
+    return (
+      run.sourceBranch === branch ||
+      run.workingBranch === branch ||
+      run.integrationBranch === branch ||
+      run.releaseBranch === branch
+    );
+  });
 }

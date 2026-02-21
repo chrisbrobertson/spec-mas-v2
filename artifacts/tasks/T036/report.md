@@ -1,0 +1,15 @@
+# T036 Task Report
+
+## Summary
+- Implemented failure classification and deterministic recovery action selection with policy validation.
+
+## Verification
+- Command: `pnpm --filter @specmas/runtime test:unit -- recovery`
+- Result: BLOCKED
+- Output:
+```text
+zsh:1: command not found: pnpm
+```
+
+## Notes
+- Attempted bootstrap: COREPACK_HOME=/tmp/corepack-home corepack prepare pnpm@9.15.0 --activate. Blocked by restricted network request to registry.npmjs.org.

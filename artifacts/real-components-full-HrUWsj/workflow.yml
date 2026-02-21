@@ -1,0 +1,23 @@
+name: real-components-full-e2e
+phases:
+  - id: spec
+    mode: sequential
+    tasks:
+      - build-spec
+    gates:
+      - G1
+  - id: implement
+    mode: sequential
+    tasks:
+      - implement-codex
+      - implement-claude
+      - implement-gemini
+    gates:
+      - G2
+      - G3
+  - id: verify
+    mode: sequential
+    tasks:
+      - verify-npm
+    gates:
+      - G4
