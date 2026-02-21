@@ -176,3 +176,27 @@
 
 ### Result
 - Overall M3-T1 docs parity: PASS.
+
+## M3-T3 Quality Gates Parity Review (2026-02-21)
+
+### Scope
+- Verify documentation/automation parity for CI quality-gate workflow coverage.
+
+### Implementation References
+- `.github/workflows/ci.yml`
+- `.github/workflows/validate.yml`
+- `.github/workflows/review.yml`
+- `.github/workflows/plan.yml`
+- `.github/workflows/run.yml`
+
+### Documentation References
+- `docs/release/ga-readiness-checklist.md`
+
+### Parity Checks
+- Workflow coverage:
+  - GA checklist requires quality-gate pipeline coverage.
+  - Workflow files exist for validation, review, planning, and run execution.
+  - Status: PASS.
+
+### Result
+- Overall M3-T3 docs parity: PASS.

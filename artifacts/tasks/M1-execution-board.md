@@ -218,12 +218,26 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - Staging rollout checklist and rollback playbook
 
 ### M3-T3 Quality Gates
-- Status: pending
+- Status: completed
 - Owner: qa
 - Goals:
   - CI jobs for unit/integration/playwright with gating
   - Accessibility checks and baseline performance budget
   - Regression and release acceptance reports
+- Files:
+  - `.github/workflows/ci.yml`
+  - `.github/workflows/validate.yml`
+  - `.github/workflows/review.yml`
+  - `.github/workflows/plan.yml`
+  - `.github/workflows/run.yml`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `test -f .github/workflows/ci.yml`
+  - `test -f .github/workflows/validate.yml`
+  - `test -f .github/workflows/review.yml`
+  - `test -f .github/workflows/plan.yml`
+  - `test -f .github/workflows/run.yml`
 
 ### M3-T4 Documentation + Runbooks
 - Status: pending
