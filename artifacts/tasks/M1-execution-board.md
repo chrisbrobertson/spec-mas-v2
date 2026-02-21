@@ -78,12 +78,29 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
 ## M2 Tickets (Usable Product)
 
 ### M2-T1 API Contract + Typed Client
-- Status: pending
+- Status: completed
 - Owner: implementation
 - Goals:
   - Define typed REST contract for runs/artifacts/logs/authoring/auth/session
   - Replace demo-only UI data with API-driven query/mutation layer
   - Add deterministic client-side error/retry handling
+- Files:
+  - `apps/api/src/runReadModels.ts`
+  - `apps/api/src/server.ts`
+  - `apps/api/tests/runs-read.test.ts`
+  - `apps/web/src/runtime/apiClient.ts`
+  - `apps/web/src/runtime/RuntimeApp.tsx`
+  - `apps/web/tests/runtime-api-client.test.ts`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `corepack pnpm --filter @specmas/api test:unit`
+  - `corepack pnpm --filter @specmas/web test:unit`
+  - `corepack pnpm -r --if-present test:unit`
+  - `corepack pnpm -r --if-present test:integration`
+  - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T2 Persistence + Bootstrap
 - Status: pending

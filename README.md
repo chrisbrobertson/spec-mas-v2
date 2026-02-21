@@ -33,6 +33,22 @@ corepack pnpm dev:full
 - SQLite web (optional): `http://localhost:8080`
 - Mailhog UI (optional): `http://localhost:8025` (SMTP on `localhost:1025`)
 
+### Runtime API Surface
+- Public probes:
+  - `GET /health`
+  - `GET /readyz`
+- Protected read endpoints (require `x-role` header: `viewer|developer|operator|admin`):
+  - `GET /runs`
+  - `GET /runs/:runId`
+  - `GET /runs/:runId/artifacts`
+  - `GET /runs/:runId/logs`
+- Session endpoints:
+  - `POST /sessions`
+  - `GET /sessions/:sessionId`
+  - `POST /sessions/:sessionId/resume`
+
+The web runtime consumes these through a typed client at `apps/web/src/runtime/apiClient.ts`, with default API base `http://localhost:3100`.
+
 ### Optional Team Tools
 ```bash
 docker compose -f docs/release/docker-compose.team.yml up -d

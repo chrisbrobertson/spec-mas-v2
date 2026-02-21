@@ -14,6 +14,7 @@ import {
   createDeterministicSessionIdGenerator,
   type AuthoringMode
 } from './sessionService.js';
+import { listRuns, loadRun, loadRunArtifacts, loadRunLogs, loadRunPhases } from './runReadModels.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -123,6 +124,78 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get('/readyz', async () => ({ status: 'ready' }));
 
   app.get('/internal/ping', async () => ({ status: 'pong' }));
+
+  app.get(
+    '/runs',
+    {
+      config: {
+        requiredPermission: 'session:read'
+      }
+    },
+    async () => ({
+      runs: listRuns()
+    })
+  );
+
+  app.get<{ Params: { runId: string } }>(
+    '/runs/:runId',
+    {
+      config: {
+        requiredPermission: 'session:read'
+      }
+    },
+    async (request, reply) => {
+      const run = loadRun(request.params.runId);
+      if (!run) {
+        reply.status(404).send({ error: `run not found: ${request.params.runId}` });
+        return;
+      }
+
+      return {
+        run,
+        phases: loadRunPhases(request.params.runId)
+      };
+    }
+  );
+
+  app.get<{ Params: { runId: string } }>(
+    '/runs/:runId/artifacts',
+    {
+      config: {
+        requiredPermission: 'session:read'
+      }
+    },
+    async (request, reply) => {
+      const payload = loadRunArtifacts(request.params.runId);
+      if (!payload) {
+        reply.status(404).send({ error: `artifacts not found: ${request.params.runId}` });
+        return;
+      }
+
+      return payload;
+    }
+  );
+
+  app.get<{ Params: { runId: string } }>(
+    '/runs/:runId/logs',
+    {
+      config: {
+        requiredPermission: 'session:read'
+      }
+    },
+    async (request, reply) => {
+      const run = loadRun(request.params.runId);
+      if (!run) {
+        reply.status(404).send({ error: `run not found: ${request.params.runId}` });
+        return;
+      }
+
+      return {
+        runId: request.params.runId,
+        entries: loadRunLogs(request.params.runId)
+      };
+    }
+  );
 
   app.post<{ Params: { runId: string }; Body: { event?: string } }>(
     '/runs/:runId/events',

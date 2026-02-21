@@ -1,38 +1,50 @@
 ## Overview
-- Scope: M1 foundation documentation parity for local full-stack startup, local port map, and local setup verification commands.
+- Scope: docs parity re-evaluation for `README.md` and `docs/release/local-setup.md` after recent updates documenting runtime API endpoints and typed client behavior.
+- Evaluation date: 2026-02-21.
 
 ## Sources Reviewed
 - Implementation/config references:
   - `package.json`
   - `scripts/dev-full.mjs`
-  - `apps/web/package.json`
-  - `apps/api/src/index.ts`
+  - `apps/api/src/main.ts`
   - `apps/api/src/runtimeConfig.ts`
-  - `docs/release/docker-compose.team.yml`
+  - `apps/api/src/server.ts`
+  - `apps/api/src/rbac.ts`
+  - `apps/api/src/runReadModels.ts`
+  - `apps/api/tests/runs-read.test.ts`
+  - `apps/web/src/runtime/config.ts`
+  - `apps/web/src/runtime/apiClient.ts`
+  - `apps/web/src/runtime/RuntimeApp.tsx`
+  - `apps/web/tests/runtime-api-client.test.ts`
 - Documentation references:
   - `README.md`
   - `docs/release/local-setup.md`
 
+## Verification Evidence
+- Re-validated documentation coverage against current implementation:
+  - `README.md` now includes Runtime API Surface details for `GET /runs`, `GET /runs/:runId`, `GET /runs/:runId/artifacts`, and `GET /runs/:runId/logs`.
+  - `README.md` now documents protected read endpoint role-header requirements (`x-role: viewer|developer|operator|admin`) and typed client wiring (`apps/web/src/runtime/apiClient.ts`) with default API base `http://localhost:3100`.
+  - `docs/release/local-setup.md` Runtime Notes now capture the same role-header requirement and typed client/default base URL behavior.
+  - API/runtime implementation remains aligned:
+    - endpoint surface in `apps/api/src/server.ts`
+    - role parsing/authorization in `apps/api/src/rbac.ts`
+    - typed client methods in `apps/web/src/runtime/apiClient.ts`
+    - runtime page consumption in `apps/web/src/runtime/RuntimeApp.tsx`
+    - default base resolution in `apps/web/src/runtime/config.ts`
+
 ## Parity Findings
-- Full-stack start command (`corepack pnpm dev:full`)
-  - Implementation: `package.json` defines `dev:full` as `node scripts/dev-full.mjs`; `scripts/dev-full.mjs` starts API and web processes with Corepack/PNPM.
-  - Docs: both `README.md` and `docs/release/local-setup.md` instruct `corepack pnpm dev:full` for full-stack start.
+- Local full-stack commands and verification steps:
   - Status: In parity.
+  - Docs and implementation still align for install/start/optional team services and verification flows.
 
-- Port map
-  - Web `3000`: implemented in `apps/web/package.json` (`vite ... --port 3000`), documented in `README.md` and `docs/release/local-setup.md`.
-  - API `3100`: implemented in `scripts/dev-full.mjs` (`API_PORT=3100`) and reinforced by defaults in `apps/api/src/index.ts` / `apps/api/src/runtimeConfig.ts`; documented in `README.md` and `docs/release/local-setup.md`.
-  - Optional sqlite-web `8080`: configured in `docs/release/docker-compose.team.yml`, documented in `README.md` and `docs/release/local-setup.md`.
-  - Optional Mailhog `8025/1025`: configured in `docs/release/docker-compose.team.yml`, documented in `README.md` and `docs/release/local-setup.md`.
+- Port map and API base wiring:
   - Status: In parity.
+  - Docs correctly map web `3000`, API `3100`, optional team service ports, and default runtime API base URL behavior.
 
-- Local setup verification commands
-  - `corepack pnpm -r --if-present test:unit`: aligns with root `package.json` (`test:unit` script).
-  - `corepack pnpm test:integration`: aligns with root `package.json` (`test:integration` script).
-  - `corepack pnpm --filter @specmas/web test:e2e`: aligns with `apps/web/package.json` (`test:e2e` script).
-  - Docs location: `docs/release/local-setup.md` (Verification section).
+- Runtime API endpoint and typed-client documentation:
   - Status: In parity.
+  - Previous documentation gap is resolved. The current docs now reflect the implemented protected read endpoint surface and typed runtime client behavior.
 
 ## Conclusion
-- Overall parity status for requested M1 foundation scope: PASS.
-- No documentation drift found for the checked startup command, port map, or local verification commands.
+- Overall M2 parity status: PASS.
+- Final determination: documentation is in sync with implementation for the assessed scope, including runtime API endpoints, role-header semantics, and typed web API client behavior.

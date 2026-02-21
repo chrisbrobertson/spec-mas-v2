@@ -26,6 +26,12 @@ This document provides deterministic local setup steps for release validation.
 - `corepack pnpm -r --if-present test:unit`
 - `corepack pnpm test:integration`
 - `corepack pnpm --filter @specmas/web test:e2e`
+- `curl -s http://localhost:3100/health`
+- `curl -s -H 'x-role: viewer' http://localhost:3100/runs`
+
+## Runtime Notes
+- API read endpoints require `x-role` set to one of `viewer|developer|operator|admin`.
+- The web runtime uses a typed client (`apps/web/src/runtime/apiClient.ts`) and defaults to API base `http://localhost:3100`.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.

@@ -11,12 +11,13 @@ import {
   type AuthoringFlowState
 } from '../authoringFlow.js';
 import { LiveLogStreamModel, type LogStreamState } from '../logStream.js';
-import { buildRunDetailView, buildRunListView } from '../runViews.js';
+import { buildRunDetailView, buildRunListView, type RunRecord } from '../runViews.js';
+import { createApiClient } from './apiClient.js';
 import { resolveApiBaseUrl } from './config.js';
-import { DEMO_ARTIFACT_CONTENT, DEMO_ARTIFACT_PATHS, DEMO_PHASES, DEMO_RUNS } from './demoData.js';
 import { materializeRoutes } from './routes.js';
 
 const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+const runtimeApiClient = createApiClient(API_BASE_URL);
 const NAV_ROUTES = materializeRoutes(createRouteSkeleton());
 
 function nowIso(): string {
@@ -28,13 +29,7 @@ function useDashboardState(): [DashboardState, () => Promise<void>] {
     () =>
       createDashboardShell(
         {
-          async ping() {
-            const response = await fetch(`${API_BASE_URL}/health`);
-            if (!response.ok) {
-              throw new Error(`health check failed: ${response.status}`);
-            }
-            return (await response.json()) as { status: string };
-          }
+          ping: () => runtimeApiClient.getHealth()
         },
         {
           now: nowIso
@@ -63,7 +58,57 @@ function formatLogState(state: LogStreamState): string {
 }
 
 function RunsPage() {
-  const runItems = buildRunListView(DEMO_RUNS);
+  const [runs, setRuns] = useState<RunRecord[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getRuns();
+        if (!active) {
+          return;
+        }
+        setRuns(response.runs);
+        setError('');
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+        setError(caughtError instanceof Error ? caughtError.message : 'Failed to load runs');
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <section>
+        <h2>Runs</h2>
+        <p>Loading runs...</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section>
+        <h2>Runs</h2>
+        <p className="error">Failed to load runs: {error}</p>
+      </section>
+    );
+  }
+
+  const runItems = buildRunListView(runs);
 
   return (
     <section>
@@ -82,18 +127,56 @@ function RunsPage() {
 
 function RunDetailPage() {
   const params = useParams<{ runId: string }>();
-  const run = DEMO_RUNS.find((candidate) => candidate.id === params.runId);
+  const runId = params.runId ?? '';
+  const [detail, setDetail] = useState<ReturnType<typeof buildRunDetailView> | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  if (!run) {
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getRunDetail(runId);
+        if (!active) {
+          return;
+        }
+        setDetail(buildRunDetailView(response.run, response.phases));
+        setError('');
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+        setError(caughtError instanceof Error ? caughtError.message : `Failed to load run: ${runId}`);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [runId]);
+
+  if (loading) {
     return (
       <section>
         <h2>Run Detail</h2>
-        <p>Unknown run: {params.runId}</p>
+        <p>Loading run detail...</p>
       </section>
     );
   }
 
-  const detail = buildRunDetailView(run, DEMO_PHASES);
+  if (error || !detail) {
+    return (
+      <section>
+        <h2>Run Detail</h2>
+        <p className="error">{error || `Unknown run: ${runId}`}</p>
+      </section>
+    );
+  }
 
   return (
     <section>
@@ -117,17 +200,72 @@ function RunDetailPage() {
 }
 
 function ArtifactsPage() {
-  const [selectedPath, setSelectedPath] = useState<string>(DEMO_ARTIFACT_PATHS[0]);
-  const tree = buildArtifactTree(DEMO_ARTIFACT_PATHS);
-  const content = DEMO_ARTIFACT_CONTENT[selectedPath] ?? '';
-  const preview = renderArtifactPreview(selectedPath, content);
+  const params = useParams<{ runId: string }>();
+  const runId = params.runId ?? '';
+  const [paths, setPaths] = useState<string[]>([]);
+  const [contents, setContents] = useState<Record<string, string>>({});
+  const [selectedPath, setSelectedPath] = useState<string>('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getRunArtifacts(runId);
+        if (!active) {
+          return;
+        }
+        setPaths(response.paths);
+        setContents(response.contents);
+        setSelectedPath(response.paths[0] ?? '');
+        setError('');
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+        setError(caughtError instanceof Error ? caughtError.message : `Failed to load artifacts: ${runId}`);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [runId]);
+
+  if (loading) {
+    return (
+      <section>
+        <h2>Artifacts</h2>
+        <p>Loading artifacts...</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section>
+        <h2>Artifacts</h2>
+        <p className="error">{error}</p>
+      </section>
+    );
+  }
+
+  const tree = buildArtifactTree(paths);
+  const content = selectedPath ? contents[selectedPath] ?? '' : '';
+  const preview = selectedPath ? renderArtifactPreview(selectedPath, content) : { renderer: 'text', summary: 'No artifact selected' };
 
   return (
     <section>
       <h2>Artifacts</h2>
-      <p>Root nodes: {tree.children.map((node) => node.name).join(', ')}</p>
+      <p>Root nodes: {tree.children.map((node) => node.name).join(', ') || '(none)'}</p>
       <div className="stack">
-        {DEMO_ARTIFACT_PATHS.map((artifactPath) => (
+        {paths.map((artifactPath) => (
           <button type="button" key={artifactPath} onClick={() => setSelectedPath(artifactPath)}>
             {artifactPath}
           </button>
@@ -142,43 +280,58 @@ function ArtifactsPage() {
 }
 
 function LogStreamPage() {
+  const params = useParams<{ runId: string }>();
+  const runId = params.runId ?? '';
   const modelRef = useRef<LiveLogStreamModel>(new LiveLogStreamModel());
   const [snapshot, setSnapshot] = useState<LogStreamState>(modelRef.current.snapshot());
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const refresh = () => setSnapshot(modelRef.current.snapshot());
+
+  useEffect(() => {
+    let active = true;
+    modelRef.current = new LiveLogStreamModel();
+    setSnapshot(modelRef.current.snapshot());
+
+    void (async () => {
+      try {
+        const response = await runtimeApiClient.getRunLogs(runId);
+        if (!active) {
+          return;
+        }
+
+        modelRef.current.connect(nowIso());
+        for (const entry of response.entries) {
+          modelRef.current.receive(entry);
+        }
+
+        setError('');
+        refresh();
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+        setError(caughtError instanceof Error ? caughtError.message : `Failed to load logs: ${runId}`);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [runId]);
 
   const connect = () => {
     modelRef.current.connect(nowIso());
     refresh();
   };
 
-  const seed = () => {
-    modelRef.current.receive({
-      runId: 'run-2',
-      sequence: 2,
-      timestamp: nowIso(),
-      message: 'second',
-      level: 'info'
-    });
-    modelRef.current.receive({
-      runId: 'run-2',
-      sequence: 1,
-      timestamp: nowIso(),
-      message: 'first',
-      level: 'info'
-    });
-    modelRef.current.receive({
-      runId: 'run-2',
-      sequence: 3,
-      timestamp: nowIso(),
-      message: 'third',
-      level: 'warn'
-    });
-    refresh();
-  };
-
   const disconnect = () => {
-    modelRef.current.disconnect(nowIso(), 'network issue');
+    modelRef.current.disconnect(nowIso(), 'manual disconnect');
     refresh();
   };
 
@@ -190,12 +343,11 @@ function LogStreamPage() {
   return (
     <section>
       <h2>Live Log Stream</h2>
+      {loading ? <p>Loading logs...</p> : null}
+      {error ? <p className="error">{error}</p> : null}
       <div className="stack">
         <button type="button" onClick={connect}>
           Connect
-        </button>
-        <button type="button" onClick={seed}>
-          Seed Logs
         </button>
         <button type="button" onClick={disconnect}>
           Disconnect
@@ -213,6 +365,8 @@ function LogStreamPage() {
 function AuthoringPage() {
   const [state, setState] = useState<AuthoringFlowState>(createAuthoringFlowState('guided'));
   const [error, setError] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState('session not started');
 
   const update = (mutate: () => AuthoringFlowState) => {
     try {
@@ -224,6 +378,37 @@ function AuthoringPage() {
     }
   };
 
+  const createSession = async () => {
+    try {
+      const session = await runtimeApiClient.createSession({
+        specId: 'spec-runtime',
+        mode: state.mode
+      });
+      setSessionId(session.id);
+      setSyncStatus(`session ${session.id} ready`);
+      setError('');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to create session');
+    }
+  };
+
+  const syncSession = async () => {
+    if (!sessionId) {
+      setError('Create a session before syncing');
+      return;
+    }
+
+    try {
+      const session = await runtimeApiClient.resumeSession(sessionId, {
+        message: `mode=${state.mode};active=${state.activeSectionId ?? 'none'}`
+      });
+      setSyncStatus(`synced messages=${session.messages.length}`);
+      setError('');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to sync session');
+    }
+  };
+
   return (
     <section>
       <h2>Spec Authoring</h2>
@@ -231,6 +416,7 @@ function AuthoringPage() {
         Mode: <strong>{state.mode}</strong> | Active: <strong>{state.activeSectionId ?? '-'}</strong>
       </p>
       <p>Accessible: {accessibleSections(state).join(', ')}</p>
+      <p>Remote: {syncStatus}</p>
       <div className="stack">
         <button type="button" onClick={() => update(() => submitGuidedAnswer(state, 'Payment service overview'))}>
           Submit Guided Answer
@@ -243,6 +429,12 @@ function AuthoringPage() {
         </button>
         <button type="button" onClick={() => update(() => switchAuthoringMode(state, 'freeform'))}>
           Switch to Freeform
+        </button>
+        <button type="button" onClick={() => void createSession()}>
+          Create Session
+        </button>
+        <button type="button" onClick={() => void syncSession()}>
+          Sync Session
         </button>
       </div>
       {error ? <p className="error">Error: {error}</p> : null}
