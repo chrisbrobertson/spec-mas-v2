@@ -50,6 +50,16 @@ corepack pnpm dev:full
 
 The web runtime consumes these through a typed client at `apps/web/src/runtime/apiClient.ts`, with default API base `http://localhost:3100`.
 
+### Local Auth + Session UX
+- Web runtime now requires login before route access.
+- Local auth endpoint: `POST /auth/login` (public).
+- Default local users (password matches username): `admin`, `operator`, `developer`, `viewer`.
+- Protected API routes accept bearer tokens and still support `x-role` for non-UI test tooling.
+- Web session lifecycle:
+  - stores auth session in local storage,
+  - enforces role-based UI behavior (for example, `viewer` is read-only for authoring sync/create),
+  - signs user out when token/session expires.
+
 ### Database Bootstrap
 - `DATABASE_URL` must point to a writable SQLite DB path (default used by scripts: `file:./specmas.db`, resolved relative to `prisma/schema.prisma`).
 - Bootstrap command:

@@ -130,12 +130,33 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T3 Auth + Session UX
-- Status: pending
+- Status: completed
 - Owner: implementation
 - Goals:
   - Implement login/session lifecycle in web app
   - Align role-based UI with backend RBAC
   - Add unauthorized and session-expiry behavior
+- Files:
+  - `apps/api/src/authService.ts`
+  - `apps/api/src/server.ts`
+  - `apps/api/src/rbac.ts`
+  - `apps/api/tests/auth.test.ts`
+  - `apps/api/tests/rbac.test.ts`
+  - `apps/web/src/runtime/apiClient.ts`
+  - `apps/web/src/runtime/authSession.ts`
+  - `apps/web/src/runtime/RuntimeApp.tsx`
+  - `apps/web/tests/runtime-api-client.test.ts`
+  - `apps/web/tests/auth-session.test.ts`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `corepack pnpm --filter @specmas/api test:unit`
+  - `corepack pnpm --filter @specmas/web test:unit`
+  - `corepack pnpm -r --if-present test:unit`
+  - `corepack pnpm -r --if-present test:integration`
+  - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M2-T4 Real Workflow Screens
 - Status: pending

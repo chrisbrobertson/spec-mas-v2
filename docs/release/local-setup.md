@@ -34,6 +34,9 @@ This document provides deterministic local setup steps for release validation.
 - API read endpoints require `x-role` set to one of `viewer|developer|operator|admin`.
 - The web runtime uses a typed client (`apps/web/src/runtime/apiClient.ts`) and defaults to API base `http://localhost:3100`.
 - API startup now runs DB preflight and fails fast when `DATABASE_URL` is missing, Prisma files are missing, or migrations are unapplied.
+- Web runtime now enforces login via `POST /auth/login` before route access.
+- Local users are built in for manual testing (`admin`, `operator`, `developer`, `viewer`) and each password matches its username.
+- Web auth sessions are persisted in browser local storage and expire automatically.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.

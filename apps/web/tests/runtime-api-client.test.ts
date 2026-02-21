@@ -63,16 +63,65 @@ describe('runtime-api-client', () => {
     const client = createApiClient('http://localhost:3100', { role: 'operator' });
     await client.createSession({ specId: 'spec-1', mode: 'guided' });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:3100/sessions',
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const headers = new Headers((init as RequestInit | undefined)?.headers);
+    expect(init).toEqual(
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ specId: 'spec-1', mode: 'guided' }),
-        headers: expect.objectContaining({
-          'x-role': 'operator',
-          'content-type': 'application/json'
-        })
+        body: JSON.stringify({ specId: 'spec-1', mode: 'guided' })
       })
     );
+    expect(headers.get('x-role')).toBe('operator');
+    expect(headers.get('content-type')).toBe('application/json');
+  });
+
+  it('logs in and returns typed auth session data', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accessToken: 'auth-0001',
+          role: 'developer',
+          username: 'developer',
+          displayName: 'Developer',
+          expiresAt: '2026-01-01T00:30:00.000Z'
+        }),
+        { status: 200 }
+      )
+    );
+
+    const client = createApiClient('http://localhost:3100');
+    const response = await client.login({ username: 'developer', password: 'developer' });
+
+    expect(response.accessToken).toBe('auth-0001');
+    expect(response.role).toBe('developer');
+  });
+
+  it('uses bearer token and calls unauthorized handler in failure path', async () => {
+    const onUnauthorized = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'session expired' }), {
+        status: 401,
+        statusText: 'Unauthorized'
+      })
+    );
+
+    const client = createApiClient('http://localhost:3100', {
+      tokenProvider: () => 'auth-0001',
+      onUnauthorized
+    });
+
+    await expect(client.getRuns()).rejects.toEqual(
+      expect.objectContaining({
+        message: 'session expired',
+        statusCode: 401
+      })
+    );
+
+    expect(onUnauthorized).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const headers = new Headers((init as RequestInit | undefined)?.headers);
+    expect(headers.get('authorization')).toBe('Bearer auth-0001');
   });
 });

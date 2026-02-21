@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { createDashboardShell, createRouteSkeleton, type DashboardState } from '../app.js';
 import { buildArtifactTree, renderArtifactPreview } from '../artifactExplorer.js';
@@ -13,12 +14,77 @@ import {
 import { LiveLogStreamModel, type LogStreamState } from '../logStream.js';
 import { buildRunDetailView, buildRunListView, type RunRecord } from '../runViews.js';
 import { createApiClient } from './apiClient.js';
+import {
+  AUTH_SESSION_STORAGE_KEY,
+  canWriteSessions,
+  isSessionExpired,
+  parseStoredSession,
+  type AuthSessionRecord
+} from './authSession.js';
 import { resolveApiBaseUrl } from './config.js';
 import { materializeRoutes } from './routes.js';
 
 const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
-const runtimeApiClient = createApiClient(API_BASE_URL);
+const SESSION_EXPIRED_EVENT = 'specmas.auth.session.expired';
 const NAV_ROUTES = materializeRoutes(createRouteSkeleton());
+
+function isBrowserEnvironment(): boolean {
+  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+}
+
+function readStoredAccessToken(): string | undefined {
+  if (!isBrowserEnvironment()) {
+    return undefined;
+  }
+
+  const rawValue = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+  if (!rawValue) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<AuthSessionRecord>;
+    return typeof parsed.accessToken === 'string' && parsed.accessToken.length > 0 ? parsed.accessToken : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readStoredAuthSession(): AuthSessionRecord | undefined {
+  if (!isBrowserEnvironment()) {
+    return undefined;
+  }
+
+  const rawValue = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+  const parsed = parseStoredSession(rawValue);
+  if (!parsed && rawValue) {
+    localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+  }
+  return parsed;
+}
+
+function persistAuthSession(session: AuthSessionRecord): void {
+  if (!isBrowserEnvironment()) {
+    return;
+  }
+  localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+function clearStoredAuthSession(): void {
+  if (!isBrowserEnvironment()) {
+    return;
+  }
+  localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+}
+
+const runtimeApiClient = createApiClient(API_BASE_URL, {
+  tokenProvider: readStoredAccessToken,
+  onUnauthorized: () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    }
+  }
+});
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -116,8 +182,7 @@ function RunsPage() {
       <ul>
         {runItems.map((item) => (
           <li key={item.id}>
-            <strong>{item.id}</strong> {item.badge.label} ({item.projectId}){' '}
-            <Link to={`/runs/${item.id}`}>Open</Link>
+            <strong>{item.id}</strong> {item.badge.label} ({item.projectId}) <Link to={`/runs/${item.id}`}>Open</Link>
           </li>
         ))}
       </ul>
@@ -185,8 +250,7 @@ function RunDetailPage() {
         <strong>{detail.runId}</strong> {detail.badge.label}
       </p>
       <p>
-        <Link to={`/runs/${detail.runId}/artifacts`}>Artifacts</Link> |{' '}
-        <Link to={`/runs/${detail.runId}/logs`}>Logs</Link>
+        <Link to={`/runs/${detail.runId}/artifacts`}>Artifacts</Link> | <Link to={`/runs/${detail.runId}/logs`}>Logs</Link>
       </p>
       <ol>
         {detail.timeline.map((phase) => (
@@ -362,11 +426,16 @@ function LogStreamPage() {
   );
 }
 
-function AuthoringPage() {
+interface AuthoringPageProps {
+  role: AuthSessionRecord['role'];
+}
+
+function AuthoringPage({ role }: AuthoringPageProps) {
   const [state, setState] = useState<AuthoringFlowState>(createAuthoringFlowState('guided'));
   const [error, setError] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState('session not started');
+  const writeEnabled = canWriteSessions(role);
 
   const update = (mutate: () => AuthoringFlowState) => {
     try {
@@ -379,6 +448,11 @@ function AuthoringPage() {
   };
 
   const createSession = async () => {
+    if (!writeEnabled) {
+      setError(`Role ${role} cannot create authoring sessions`);
+      return;
+    }
+
     try {
       const session = await runtimeApiClient.createSession({
         specId: 'spec-runtime',
@@ -393,6 +467,11 @@ function AuthoringPage() {
   };
 
   const syncSession = async () => {
+    if (!writeEnabled) {
+      setError(`Role ${role} cannot sync authoring sessions`);
+      return;
+    }
+
     if (!sessionId) {
       setError('Create a session before syncing');
       return;
@@ -415,6 +494,9 @@ function AuthoringPage() {
       <p>
         Mode: <strong>{state.mode}</strong> | Active: <strong>{state.activeSectionId ?? '-'}</strong>
       </p>
+      <p>
+        Role: <strong>{role}</strong> | Access: <strong>{writeEnabled ? 'read/write' : 'read-only'}</strong>
+      </p>
       <p>Accessible: {accessibleSections(state).join(', ')}</p>
       <p>Remote: {syncStatus}</p>
       <div className="stack">
@@ -430,10 +512,10 @@ function AuthoringPage() {
         <button type="button" onClick={() => update(() => switchAuthoringMode(state, 'freeform'))}>
           Switch to Freeform
         </button>
-        <button type="button" onClick={() => void createSession()}>
+        <button type="button" onClick={() => void createSession()} disabled={!writeEnabled}>
           Create Session
         </button>
-        <button type="button" onClick={() => void syncSession()}>
+        <button type="button" onClick={() => void syncSession()} disabled={!writeEnabled}>
           Sync Session
         </button>
       </div>
@@ -449,8 +531,133 @@ function AuthoringPage() {
   );
 }
 
+interface LoginScreenProps {
+  notice: string;
+  onLoggedIn: (session: AuthSessionRecord) => void;
+}
+
+function LoginScreen({ notice, onLoggedIn }: LoginScreenProps) {
+  const [username, setUsername] = useState('developer');
+  const [password, setPassword] = useState('developer');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const session = await runtimeApiClient.login({ username, password });
+      onLoggedIn(session);
+      setError('');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to sign in');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="layout">
+      <header>
+        <h1>Spec-MAS Dashboard</h1>
+        <p>Sign in to access runs, artifacts, logs, and authoring workflows.</p>
+      </header>
+
+      {notice ? <p>{notice}</p> : null}
+      {error ? <p className="error">Error: {error}</p> : null}
+
+      <form onSubmit={submit}>
+        <label>
+          Username
+          <input
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Signing In...' : 'Sign In'}
+        </button>
+      </form>
+      <p>Default local users: `admin`, `operator`, `developer`, `viewer` (password matches username).</p>
+    </main>
+  );
+}
+
 export function RuntimeApp() {
   const [dashboardState, refreshHealth] = useDashboardState();
+  const [authSession, setAuthSession] = useState<AuthSessionRecord | undefined>(() => readStoredAuthSession());
+  const [authNotice, setAuthNotice] = useState(authSession ? '' : 'Please sign in.');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAuthSession((current) => {
+        if (!current) {
+          return current;
+        }
+
+        if (isSessionExpired(current.expiresAt)) {
+          clearStoredAuthSession();
+          setAuthNotice('Session expired. Please sign in again.');
+          return undefined;
+        }
+
+        return current;
+      });
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleExpired = () => {
+      clearStoredAuthSession();
+      setAuthSession(undefined);
+      setAuthNotice('Session expired. Please sign in again.');
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpired);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired);
+    };
+  }, []);
+
+  const handleLoggedIn = (session: AuthSessionRecord) => {
+    persistAuthSession(session);
+    setAuthSession(session);
+    setAuthNotice('');
+  };
+
+  const handleSignOut = () => {
+    clearStoredAuthSession();
+    setAuthSession(undefined);
+    setAuthNotice('Signed out.');
+  };
+
+  if (!authSession) {
+    return <LoginScreen notice={authNotice} onLoggedIn={handleLoggedIn} />;
+  }
+
+  const navRoutes = canWriteSessions(authSession.role)
+    ? NAV_ROUTES
+    : NAV_ROUTES.filter((route) => route.key !== 'authoring');
 
   return (
     <main className="layout">
@@ -459,14 +666,20 @@ export function RuntimeApp() {
         <p>
           API: {API_BASE_URL} | Health: <strong>{dashboardState.apiHealthy ? 'healthy' : 'unhealthy'}</strong>
         </p>
+        <p>
+          User: <strong>{authSession.displayName}</strong> ({authSession.role}) | Expires: {authSession.expiresAt}
+        </p>
         <p>Last check: {dashboardState.lastHealthCheckAt ?? 'never'}</p>
         <button type="button" onClick={() => void refreshHealth()}>
           Refresh Health
         </button>
+        <button type="button" onClick={handleSignOut}>
+          Sign Out
+        </button>
       </header>
 
       <nav>
-        {NAV_ROUTES.map((route) => (
+        {navRoutes.map((route) => (
           <Link key={route.key} to={route.path}>
             {route.title}
           </Link>
@@ -479,7 +692,7 @@ export function RuntimeApp() {
         <Route path="/runs/:runId" element={<RunDetailPage />} />
         <Route path="/runs/:runId/artifacts" element={<ArtifactsPage />} />
         <Route path="/runs/:runId/logs" element={<LogStreamPage />} />
-        <Route path="/authoring" element={<AuthoringPage />} />
+        <Route path="/authoring" element={<AuthoringPage role={authSession.role} />} />
         <Route path="*" element={<Navigate to="/runs" replace />} />
       </Routes>
     </main>

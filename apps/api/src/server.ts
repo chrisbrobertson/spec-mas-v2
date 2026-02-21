@@ -7,13 +7,14 @@ import {
   type CorrelationIdGenerator,
   type StructuredLogger
 } from './logging.js';
-import { authorize, isPublicPath, parseRole, type Permission } from './rbac.js';
+import { authorize, isPublicPath, parseBearerToken, parseRole, type Permission } from './rbac.js';
 import {
   InMemoryConversationSessionService,
   createDeterministicSessionClock,
   createDeterministicSessionIdGenerator,
   type AuthoringMode
 } from './sessionService.js';
+import { InMemoryAuthService } from './authService.js';
 import { listRuns, loadRun, loadRunArtifacts, loadRunLogs, loadRunPhases } from './runReadModels.js';
 
 declare module 'fastify' {
@@ -31,6 +32,7 @@ export interface CreateServerOptions {
   logger?: StructuredLogger;
   correlationIdGenerator?: CorrelationIdGenerator;
   sessionService?: InMemoryConversationSessionService;
+  authService?: InMemoryAuthService;
   corsOrigin?: string | string[] | boolean;
 }
 
@@ -67,6 +69,7 @@ export function createServer(options: CreateServerOptions = {}) {
       createDeterministicSessionIdGenerator('session'),
       createDeterministicSessionClock()
     );
+  const authService = options.authService ?? new InMemoryAuthService();
 
   const app = Fastify();
   app.register(cors, { origin: options.corsOrigin ?? 'http://localhost:3000' });
@@ -91,10 +94,18 @@ export function createServer(options: CreateServerOptions = {}) {
 
     const requiredPermission = getPermission(request);
 
+    const accessToken = parseBearerToken(request.headers.authorization);
     const roleHeader = parseRawHeaderValue(request.headers['x-role']);
-    const role = parseRole(roleHeader);
+    let role = parseRole(roleHeader);
 
-    if (roleHeader && !role) {
+    if (accessToken) {
+      const validation = authService.validate(accessToken);
+      if (!validation.ok) {
+        reply.status(401).send({ error: validation.reason });
+        return;
+      }
+      role = validation.session.role;
+    } else if (roleHeader && !role) {
       reply.status(403).send({ error: `access denied: unknown role ${roleHeader}` });
       return;
     }
@@ -122,6 +133,24 @@ export function createServer(options: CreateServerOptions = {}) {
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/readyz', async () => ({ status: 'ready' }));
+
+  app.post<{ Body: { username?: string; password?: string } }>('/auth/login', async (request, reply) => {
+    const username = request.body?.username?.trim();
+    const password = request.body?.password;
+
+    if (!username || !password) {
+      reply.status(400).send({ error: 'username and password are required' });
+      return;
+    }
+
+    const session = authService.login({ username, password });
+    if (!session) {
+      reply.status(401).send({ error: 'invalid credentials' });
+      return;
+    }
+
+    return session;
+  });
 
   app.get('/internal/ping', async () => ({ status: 'pong' }));
 

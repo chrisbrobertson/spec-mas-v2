@@ -83,3 +83,37 @@
 
 ### Result
 - Overall M2-T2 docs parity: PASS.
+
+## M2-T3 Auth + Session UX Parity Review (2026-02-21)
+
+### Scope
+- Verify documentation parity for login/session lifecycle and role-aligned UI behavior introduced in M2-T3.
+
+### Implementation References
+- `apps/api/src/authService.ts`
+- `apps/api/src/server.ts`
+- `apps/api/src/rbac.ts`
+- `apps/web/src/runtime/RuntimeApp.tsx`
+- `apps/web/src/runtime/apiClient.ts`
+- `apps/web/src/runtime/authSession.ts`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+
+### Parity Checks
+- Local login flow:
+  - Docs describe `POST /auth/login` and local default users.
+  - Implementation provides login endpoint and built-in local users (`admin`, `operator`, `developer`, `viewer`).
+  - Status: PASS.
+- Session lifecycle behavior:
+  - Docs describe browser-stored auth sessions and automatic expiry handling.
+  - Implementation persists session in local storage and signs out on expiry/unauthorized conditions.
+  - Status: PASS.
+- RBAC-aligned UX:
+  - Docs note role-based behavior for runtime usage.
+  - Implementation enforces read-only authoring sync/create behavior for `viewer`, aligned with backend permissions.
+  - Status: PASS.
+
+### Result
+- Overall M2-T3 docs parity: PASS.

@@ -48,3 +48,32 @@
 
 ### Final Status
 - PASS
+
+## M2-T3 Auth + Session UX Validation (2026-02-21)
+
+### Scope
+- Validate login/session lifecycle behavior and RBAC-aligned UX updates for API and web runtime.
+
+### Commands
+- `corepack pnpm --filter @specmas/api test:unit`
+- `corepack pnpm --filter @specmas/web test:unit`
+- `corepack pnpm -r --if-present test:unit`
+- `corepack pnpm -r --if-present test:integration`
+- `corepack pnpm --filter @specmas/web test:e2e`
+
+### Command Output Summary
+- `corepack pnpm --filter @specmas/api test:unit`: PASS (`8` files, `31` tests).
+- `corepack pnpm --filter @specmas/web test:unit`: PASS (`9` files, `29` tests).
+- `corepack pnpm -r --if-present test:unit`: PASS (workspace-wide; `packages/test-utils` reported `19 passed | 1 skipped`).
+- `corepack pnpm -r --if-present test:integration`: PASS (workspace-wide; `packages/test-utils` reported `19 passed | 1 skipped`).
+- `corepack pnpm --filter @specmas/web test:e2e`: PASS (`5 passed`).
+
+### Observations
+- New API auth tests passed for login happy path, invalid credentials, and expired token behavior.
+- Web runtime API client and auth-session tests passed for token headers, unauthorized callbacks, and expiry parsing.
+- Regression issue encountered during validation:
+  - web build initially failed due `HeadersInit` typing in API client request construction.
+  - resolved by switching to `Headers` object construction and updating affected unit assertions.
+
+### Final Status
+- PASS
