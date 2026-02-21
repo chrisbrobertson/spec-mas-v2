@@ -18,6 +18,7 @@ import { InMemoryAuthService } from './authService.js';
 import { InMemoryMergeApprovalService, type MergeApprovalService } from './mergeApprovalService.js';
 import { PrismaRunQueryService, type RunQueryService } from './runQueryService.js';
 import { PrismaRunControlService, type RunControlService } from './runControlService.js';
+import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from './runtimeReadiness.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -39,6 +40,7 @@ export interface CreateServerOptions {
   runQueryService?: RunQueryService;
   runControlService?: RunControlService;
   mergeApprovalService?: MergeApprovalService;
+  runtimeReadinessProvider?: () => Promise<RuntimeReadinessResult>;
 }
 
 function getPermission(request: FastifyRequest): Permission | undefined {
@@ -78,6 +80,7 @@ export function createServer(options: CreateServerOptions = {}) {
   const runQueryService = options.runQueryService ?? new PrismaRunQueryService();
   const runControlService = options.runControlService ?? new PrismaRunControlService();
   const mergeApprovalService = options.mergeApprovalService ?? new InMemoryMergeApprovalService();
+  const runtimeReadinessProvider = options.runtimeReadinessProvider ?? (() => evaluateRuntimeReadiness());
 
   const app = Fastify();
   app.register(cors, { origin: options.corsOrigin ?? 'http://localhost:3000' });
@@ -148,6 +151,16 @@ export function createServer(options: CreateServerOptions = {}) {
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/readyz', async () => ({ status: 'ready' }));
 
+  app.get(
+    '/runtime/readiness',
+    {
+      config: {
+        requiredPermission: 'system:inspect'
+      }
+    },
+    async () => runtimeReadinessProvider()
+  );
+
   app.post<{ Body: { username?: string; password?: string } }>('/auth/login', async (request, reply) => {
     const username = request.body?.username?.trim();
     const password = request.body?.password;
@@ -203,6 +216,15 @@ export function createServer(options: CreateServerOptions = {}) {
       }
 
       try {
+        const readiness = await runtimeReadinessProvider();
+        if (!readiness.ready) {
+          reply.status(503).send({
+            error: 'runtime readiness check failed',
+            readiness
+          });
+          return;
+        }
+
         const started = await runControlService.startRun({
           projectId,
           specId: request.body?.specId?.trim() || undefined,

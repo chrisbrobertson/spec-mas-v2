@@ -82,7 +82,13 @@ describe('run control routes', () => {
     const control = new MutableRunControlService(query.runs);
     const app = createServer({
       runQueryService: query,
-      runControlService: control
+      runControlService: control,
+      runtimeReadinessProvider: async () => ({
+        ready: true,
+        dockerRequired: true,
+        openhandsEnabled: true,
+        checks: []
+      })
     });
 
     const startResponse = await app.inject({
@@ -128,7 +134,13 @@ describe('run control routes', () => {
     const control = new MutableRunControlService(query.runs);
     const app = createServer({
       runQueryService: query,
-      runControlService: control
+      runControlService: control,
+      runtimeReadinessProvider: async () => ({
+        ready: true,
+        dockerRequired: true,
+        openhandsEnabled: true,
+        checks: []
+      })
     });
 
     const missingProject = await app.inject({
@@ -168,7 +180,13 @@ describe('run control routes', () => {
         async cancelRun() {
           return false;
         }
-      }
+      },
+      runtimeReadinessProvider: async () => ({
+        ready: true,
+        dockerRequired: true,
+        openhandsEnabled: true,
+        checks: []
+      })
     });
 
     const startResponse = await app.inject({
@@ -184,6 +202,45 @@ describe('run control routes', () => {
 
     expect(startResponse.statusCode).toBe(500);
     expect(startResponse.json()).toEqual({ error: 'run persisted but not readable: run-edge-1' });
+
+    await app.close();
+  });
+
+  it('returns 503 when runtime readiness checks fail', async () => {
+    const query = new MutableRunQueryService();
+    const control = new MutableRunControlService(query.runs);
+    const app = createServer({
+      runQueryService: query,
+      runControlService: control,
+      runtimeReadinessProvider: async () => ({
+        ready: false,
+        dockerRequired: true,
+        openhandsEnabled: true,
+        checks: [{ name: 'docker', ok: false, message: 'docker daemon unavailable' }]
+      })
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      headers: {
+        'x-role': 'developer'
+      },
+      payload: {
+        projectId: 'alpha'
+      }
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      error: 'runtime readiness check failed',
+      readiness: {
+        ready: false,
+        dockerRequired: true,
+        openhandsEnabled: true,
+        checks: [{ name: 'docker', ok: false, message: 'docker daemon unavailable' }]
+      }
+    });
 
     await app.close();
   });
