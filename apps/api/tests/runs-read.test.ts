@@ -10,7 +10,12 @@ describe('runs read endpoints', () => {
           id: 'run-2',
           projectId: 'alpha',
           status: 'running',
-          startedAt: '2026-02-20T00:00:00.000Z'
+          startedAt: '2026-02-20T00:00:00.000Z',
+          sourceBranch: 'main',
+          workingBranch: 'specmas/run-2/issue-201',
+          integrationBranch: 'specmas/run-2/integration',
+          releaseBranch: 'specmas/run-2/release',
+          mergeStatus: 'awaiting_human_approval'
         },
         phases: [
           {
@@ -64,7 +69,12 @@ describe('runs read endpoints', () => {
           id: 'run-1',
           projectId: 'alpha',
           status: 'passed',
-          startedAt: '2026-02-19T00:00:00.000Z'
+          startedAt: '2026-02-19T00:00:00.000Z',
+          sourceBranch: 'main',
+          workingBranch: 'specmas/run-1/issue-101',
+          integrationBranch: 'specmas/run-1/integration',
+          releaseBranch: 'specmas/run-1/release',
+          mergeStatus: 'awaiting_human_approval'
         }
       }
     ]);
@@ -96,8 +106,15 @@ describe('runs read endpoints', () => {
       }
     });
     expect(detailResponse.statusCode).toBe(200);
-    const detail = detailResponse.json<{ run: { id: string }; phases: Array<{ runId: string }> }>();
+    const detail = detailResponse.json<{
+      run: {
+        id: string;
+        workingBranch: string;
+      };
+      phases: Array<{ runId: string }>;
+    }>();
     expect(detail.run.id).toBe('run-2');
+    expect(detail.run.workingBranch).toBe('specmas/run-2/issue-201');
     expect(detail.phases).toHaveLength(2);
     expect(detail.phases.every((phase) => phase.runId === 'run-2')).toBe(true);
 
@@ -184,6 +201,34 @@ describe('runs read endpoints', () => {
     });
     expect(invalidAfterResponse.statusCode).toBe(400);
     expect(invalidAfterResponse.json()).toEqual({ error: 'invalid after sequence: NaN' });
+
+    await app.close();
+  });
+
+  it('filters runs by project and branch', async () => {
+    const app = createServer({
+      runQueryService: createRunQueryService()
+    });
+
+    const projectResponse = await app.inject({
+      method: 'GET',
+      url: '/runs?projectId=alpha',
+      headers: {
+        'x-role': 'viewer'
+      }
+    });
+    expect(projectResponse.statusCode).toBe(200);
+    expect(projectResponse.json<{ runs: Array<{ id: string }> }>().runs).toHaveLength(2);
+
+    const branchResponse = await app.inject({
+      method: 'GET',
+      url: '/runs?projectId=alpha&branch=specmas/run-2/issue-201',
+      headers: {
+        'x-role': 'viewer'
+      }
+    });
+    expect(branchResponse.statusCode).toBe(200);
+    expect(branchResponse.json<{ runs: Array<{ id: string }> }>().runs.map((run) => run.id)).toEqual(['run-2']);
 
     await app.close();
   });

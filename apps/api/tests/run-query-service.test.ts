@@ -9,7 +9,12 @@ describe('run-query-service', () => {
           id: 'run-1',
           projectId: 'alpha',
           status: 'passed',
-          startedAt: '2026-02-19T00:00:00.000Z'
+          startedAt: '2026-02-19T00:00:00.000Z',
+          sourceBranch: 'main',
+          workingBranch: 'specmas/run-1/issue-101',
+          integrationBranch: 'specmas/run-1/integration',
+          releaseBranch: 'specmas/run-1/release',
+          mergeStatus: 'awaiting_human_approval'
         },
         phases: [
           {
@@ -48,7 +53,12 @@ describe('run-query-service', () => {
           id: 'run-2',
           projectId: 'alpha',
           status: 'running',
-          startedAt: '2026-02-20T00:00:00.000Z'
+          startedAt: '2026-02-20T00:00:00.000Z',
+          sourceBranch: 'main',
+          workingBranch: 'specmas/run-2/issue-201',
+          integrationBranch: 'specmas/run-2/integration',
+          releaseBranch: 'specmas/run-2/release',
+          mergeStatus: 'awaiting_human_approval'
         },
         logs: [
           {
@@ -94,5 +104,29 @@ describe('run-query-service', () => {
     const reloaded = await service.loadRunArtifacts('run-1');
     expect(reloaded?.paths).toEqual(['run-summary.md']);
     expect(reloaded?.contents['run-summary.md']).toBe('# Run Summary');
+  });
+
+  it('lists projects and branch inventory deterministically', async () => {
+    const service = createService();
+
+    const projects = await service.listProjects();
+    expect(projects).toEqual([
+      {
+        projectId: 'alpha',
+        name: 'alpha',
+        repoUrl: 'https://github.com/specmas/alpha',
+        defaultBranch: 'main',
+        activeRunCount: 1
+      }
+    ]);
+
+    const branches = await service.loadProjectBranches('alpha');
+    expect(branches).toEqual({
+      projectId: 'alpha',
+      defaultBranch: 'main',
+      integrationBranches: ['specmas/run-1/integration', 'specmas/run-2/integration'],
+      releaseBranches: ['specmas/run-1/release', 'specmas/run-2/release'],
+      activeRunBranches: ['specmas/run-1/issue-101', 'specmas/run-2/issue-201']
+    });
   });
 });
