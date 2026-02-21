@@ -240,9 +240,21 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
   - `test -f .github/workflows/run.yml`
 
 ### M3-T4 Documentation + Runbooks
-- Status: pending
+- Status: completed
 - Owner: docs
 - Goals:
   - Final user/admin runbooks and troubleshooting
   - Command/flag/output parity checks against implementation
   - Release notes + migration guidance
+- Files:
+  - `docs/release/ga-readiness-checklist.md`
+  - `docs/release/migration-dry-run.sh`
+  - `docs/security/non-functional-controls.md`
+  - `docs/security/secrets.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `test -f docs/release/ga-readiness-checklist.md`
+  - `test -f docs/security/secrets.md`
+  - `test -f docs/security/non-functional-controls.md`
+  - `DATABASE_URL=file:./specmas.db docs/release/migration-dry-run.sh`

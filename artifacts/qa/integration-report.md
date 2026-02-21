@@ -49,6 +49,28 @@
 ### Final Status
 - PASS
 
+## M3-T4 Documentation + Runbooks Validation (2026-02-21)
+
+### Scope
+- Validate release runbook assets and migration guidance command viability.
+
+### Commands
+- `test -f docs/release/ga-readiness-checklist.md`
+- `test -f docs/security/secrets.md`
+- `test -f docs/security/non-functional-controls.md`
+- `DATABASE_URL=file:./specmas.db docs/release/migration-dry-run.sh`
+
+### Command Output Summary
+- All file existence checks passed (exit code `0`).
+- Migration dry-run command passed and produced `/tmp/specmas-migration-dry-run.sql`.
+
+### Observations
+- Migration runbook script required explicit `corepack pnpm` invocation; this was fixed to align with repository runtime assumptions.
+- Release and security runbooks now provide deterministic prerequisites/steps/verification/troubleshooting guidance.
+
+### Final Status
+- PASS
+
 ## M3-T3 Quality Gate Pipeline Validation (2026-02-21)
 
 ### Scope

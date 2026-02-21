@@ -200,3 +200,28 @@
 
 ### Result
 - Overall M3-T3 docs parity: PASS.
+
+## M3-T4 Documentation + Runbooks Parity Review (2026-02-21)
+
+### Scope
+- Verify parity between implementation commands and final release/security runbook documentation.
+
+### Implementation References
+- `docs/release/migration-dry-run.sh`
+
+### Documentation References
+- `docs/release/ga-readiness-checklist.md`
+- `docs/security/non-functional-controls.md`
+- `docs/security/secrets.md`
+
+### Parity Checks
+- Migration command parity:
+  - Runbook script uses repository-standard command runner (`corepack pnpm`) and executes successfully.
+  - Status: PASS.
+- Release/security guidance parity:
+  - Docs include deterministic Overview/Prerequisites/Steps/Verification/Troubleshooting structure.
+  - Referenced validation commands map to available repository workflows/tests.
+  - Status: PASS.
+
+### Result
+- Overall M3-T4 docs parity: PASS.
