@@ -149,6 +149,10 @@ export function loadRunLogs(runId: string): LogEntry[] {
   return LOGS.filter((log) => log.runId === runId).map(copyLog);
 }
 
+export function loadRunLogsAfter(runId: string, afterSequence: number): LogEntry[] {
+  return LOGS.filter((log) => log.runId === runId && log.sequence > afterSequence).map(copyLog);
+}
+
 export function loadRunArtifacts(runId: string): ArtifactPayload | undefined {
   const payload = ARTIFACTS_BY_RUN_ID[runId];
   if (!payload) {

@@ -15,7 +15,7 @@ import {
   type AuthoringMode
 } from './sessionService.js';
 import { InMemoryAuthService } from './authService.js';
-import { listRuns, loadRun, loadRunArtifacts, loadRunLogs, loadRunPhases } from './runReadModels.js';
+import { listRuns, loadRun, loadRunArtifacts, loadRunLogs, loadRunLogsAfter, loadRunPhases } from './runReadModels.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -223,6 +223,48 @@ export function createServer(options: CreateServerOptions = {}) {
         runId: request.params.runId,
         entries: loadRunLogs(request.params.runId)
       };
+    }
+  );
+
+  app.get<{ Params: { runId: string }; Querystring: { after?: string } }>(
+    '/runs/:runId/logs/stream',
+    {
+      config: {
+        requiredPermission: 'session:read'
+      }
+    },
+    async (request, reply) => {
+      const run = loadRun(request.params.runId);
+      if (!run) {
+        reply.status(404).send({ error: `run not found: ${request.params.runId}` });
+        return;
+      }
+
+      const afterRaw = request.query?.after?.trim();
+      if (!afterRaw) {
+        const entries = loadRunLogsAfter(request.params.runId, 0);
+        const payload = entries
+          .map((entry) => `event: log\nid: ${entry.sequence}\ndata: ${JSON.stringify(entry)}\n\n`)
+          .join('');
+        reply.header('content-type', 'text/event-stream; charset=utf-8');
+        reply.header('cache-control', 'no-cache');
+        return `${payload}event: end\ndata: ${JSON.stringify({ delivered: entries.length })}\n\n`;
+      }
+
+      const parsedAfter = Number(afterRaw);
+      if (!Number.isInteger(parsedAfter) || parsedAfter < 0) {
+        reply.status(400).send({ error: `invalid after sequence: ${afterRaw}` });
+        return;
+      }
+
+      const entries = loadRunLogsAfter(request.params.runId, parsedAfter);
+      const payload = entries
+        .map((entry) => `event: log\nid: ${entry.sequence}\ndata: ${JSON.stringify(entry)}\n\n`)
+        .join('');
+
+      reply.header('content-type', 'text/event-stream; charset=utf-8');
+      reply.header('cache-control', 'no-cache');
+      return `${payload}event: end\ndata: ${JSON.stringify({ delivered: entries.length })}\n\n`;
     }
   );
 

@@ -37,6 +37,7 @@ This document provides deterministic local setup steps for release validation.
 - Web runtime now enforces login via `POST /auth/login` before route access.
 - Local users are built in for manual testing (`admin`, `operator`, `developer`, `viewer`) and each password matches its username.
 - Web auth sessions are persisted in browser local storage, authoring session ids can be restored, and auth sessions expire automatically.
+- Live log transport is exposed as `GET /runs/:runId/logs/stream?after=<sequence>` and supports reconnect cursors.
 
 ## Troubleshooting
 - If Docker services fail, run `docker compose -f docs/release/docker-compose.team.yml config`.

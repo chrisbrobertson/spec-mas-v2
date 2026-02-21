@@ -394,14 +394,22 @@ function LogStreamPage() {
     modelRef.current = new LiveLogStreamModel();
     setSnapshot(modelRef.current.snapshot());
 
-    void (async () => {
+    const pullStream = async () => {
+      const current = modelRef.current.snapshot();
       try {
-        const response = await runtimeApiClient.getRunLogs(runId);
+        const response = await runtimeApiClient.getRunLogStream(runId, current.lastSequence);
         if (!active) {
           return;
         }
 
-        modelRef.current.connect(nowIso());
+        if (!current.connected) {
+          if (current.logs.length > 0) {
+            modelRef.current.reconnect(nowIso());
+          } else {
+            modelRef.current.connect(nowIso());
+          }
+        }
+
         for (const entry of response.entries) {
           modelRef.current.receive(entry);
         }
@@ -412,16 +420,24 @@ function LogStreamPage() {
         if (!active) {
           return;
         }
+        modelRef.current.disconnect(nowIso(), 'stream fetch failed');
         setError(caughtError instanceof Error ? caughtError.message : `Failed to load logs: ${runId}`);
+        refresh();
       } finally {
         if (active) {
           setLoading(false);
         }
       }
-    })();
+    };
+
+    void pullStream();
+    const intervalId = setInterval(() => {
+      void pullStream();
+    }, 3000);
 
     return () => {
       active = false;
+      clearInterval(intervalId);
     };
   }, [runId]);
 

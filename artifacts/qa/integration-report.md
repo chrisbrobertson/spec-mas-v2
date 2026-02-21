@@ -49,6 +49,36 @@
 ### Final Status
 - PASS
 
+## M3-T1 Realtime + Reliability Validation (2026-02-21)
+
+### Scope
+- Validate SSE live-log transport, reconnect cursor behavior, ordering/dedupe handling, and reliability path coverage.
+
+### Commands
+- `corepack pnpm --filter @specmas/api test:unit`
+- `corepack pnpm --filter @specmas/web test:unit`
+- `corepack pnpm -r --if-present test:unit`
+- `corepack pnpm -r --if-present test:integration`
+- `corepack pnpm --filter @specmas/web test:e2e`
+
+### Command Output Summary
+- `corepack pnpm --filter @specmas/api test:unit`: PASS (`8` files, `31` tests).
+- `corepack pnpm --filter @specmas/web test:unit`: PASS (`10` files, `35` tests).
+- `corepack pnpm -r --if-present test:unit`: PASS (workspace-wide; one pre-existing skipped test in `packages/test-utils`).
+- `corepack pnpm -r --if-present test:integration`: PASS (workspace-wide; one pre-existing skipped test in `packages/test-utils`).
+- `corepack pnpm --filter @specmas/web test:e2e`: PASS (`5 passed`).
+
+### Observations
+- API now exposes SSE endpoint `GET /runs/:runId/logs/stream?after=<sequence>` with cursor-based replay behavior.
+- SSE unit coverage verifies:
+  - happy path stream payload from `after` cursor,
+  - failure path for invalid `after`,
+  - edge behavior for missing runs and delivered counts.
+- Web log transport now consumes SSE payloads and applies reconnect-friendly sequence cursors for incremental log retrieval.
+
+### Final Status
+- PASS
+
 ## M2-T4 Real Workflow Screens Validation (2026-02-21)
 
 ### Scope

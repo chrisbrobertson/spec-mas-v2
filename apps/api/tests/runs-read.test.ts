@@ -64,6 +64,20 @@ describe('runs read endpoints', () => {
       3
     ]);
 
+    const streamResponse = await app.inject({
+      method: 'GET',
+      url: '/runs/run-2/logs/stream?after=1',
+      headers: {
+        'x-role': 'viewer'
+      }
+    });
+    expect(streamResponse.statusCode).toBe(200);
+    expect(streamResponse.headers['content-type']).toContain('text/event-stream');
+    expect(streamResponse.body).toContain('id: 2');
+    expect(streamResponse.body).toContain('id: 3');
+    expect(streamResponse.body).not.toContain('id: 1');
+    expect(streamResponse.body).toContain('event: end');
+
     await app.close();
   });
 
@@ -86,6 +100,16 @@ describe('runs read endpoints', () => {
     });
     expect(missingRoleResponse.statusCode).toBe(403);
     expect(missingRoleResponse.json()).toEqual({ error: 'access denied: role is required' });
+
+    const invalidAfterResponse = await app.inject({
+      method: 'GET',
+      url: '/runs/run-2/logs/stream?after=NaN',
+      headers: {
+        'x-role': 'viewer'
+      }
+    });
+    expect(invalidAfterResponse.statusCode).toBe(400);
+    expect(invalidAfterResponse.json()).toEqual({ error: 'invalid after sequence: NaN' });
 
     await app.close();
   });

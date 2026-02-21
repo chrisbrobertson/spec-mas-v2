@@ -43,6 +43,7 @@ corepack pnpm dev:full
   - `GET /runs/:runId`
   - `GET /runs/:runId/artifacts`
   - `GET /runs/:runId/logs`
+  - `GET /runs/:runId/logs/stream?after=<sequence>` (SSE)
 - Session endpoints:
   - `POST /sessions`
   - `GET /sessions/:sessionId`
@@ -55,6 +56,7 @@ The web runtime consumes these through a typed client at `apps/web/src/runtime/a
 - Local auth endpoint: `POST /auth/login` (public).
 - Default local users (password matches username): `admin`, `operator`, `developer`, `viewer`.
 - Protected API routes accept bearer tokens and still support `x-role` for non-UI test tooling.
+- Log streaming supports reconnect cursors via `after` sequence and emits SSE `log`/`end` events.
 - Web session lifecycle:
   - stores auth session in local storage,
   - enforces role-based UI behavior (for example, `viewer` is read-only for authoring sync/create),

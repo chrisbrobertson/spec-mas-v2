@@ -185,12 +185,29 @@ Deliver a real user-runnable local stack with clear ports and one-command startu
 ## M3 Tickets (Production Readiness)
 
 ### M3-T1 Realtime + Reliability
-- Status: pending
+- Status: completed
 - Owner: implementation
 - Goals:
   - Production-grade live log transport (SSE/WebSocket)
   - Reconnect + ordering + dedupe guarantees
   - Failure handling and recovery instrumentation
+- Files:
+  - `apps/api/src/server.ts`
+  - `apps/api/src/runReadModels.ts`
+  - `apps/api/tests/runs-read.test.ts`
+  - `apps/web/src/runtime/apiClient.ts`
+  - `apps/web/src/runtime/RuntimeApp.tsx`
+  - `apps/web/tests/runtime-api-client.test.ts`
+  - `README.md`
+  - `docs/release/local-setup.md`
+  - `artifacts/qa/integration-report.md`
+  - `artifacts/qa/docs-parity-report.md`
+- Validation:
+  - `corepack pnpm --filter @specmas/api test:unit`
+  - `corepack pnpm --filter @specmas/web test:unit`
+  - `corepack pnpm -r --if-present test:unit`
+  - `corepack pnpm -r --if-present test:integration`
+  - `corepack pnpm --filter @specmas/web test:e2e`
 
 ### M3-T2 Deployment + Operations
 - Status: pending

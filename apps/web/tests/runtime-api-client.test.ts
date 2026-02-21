@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, createApiClient } from '../src/runtime/apiClient.js';
+import { ApiError, createApiClient, parseSseLogPayload } from '../src/runtime/apiClient.js';
 
 describe('runtime-api-client', () => {
   afterEach(() => {
@@ -147,5 +147,45 @@ describe('runtime-api-client', () => {
     const [, init] = fetchMock.mock.calls[0] ?? [];
     const headers = new Headers((init as RequestInit | undefined)?.headers);
     expect(headers.get('authorization')).toBe('Bearer auth-0001');
+  });
+
+  it('parses sse log payloads for reconnect/ordering happy path', () => {
+    const parsed = parseSseLogPayload(
+      [
+        'event: log',
+        'id: 2',
+        'data: {"runId":"run-2","sequence":2,"timestamp":"2026-02-20T00:00:02.000Z","message":"phase","level":"warn"}',
+        '',
+        'event: end',
+        'data: {"delivered":1}',
+        ''
+      ].join('\n')
+    );
+
+    expect(parsed.delivered).toBe(1);
+    expect(parsed.entries.map((entry) => entry.sequence)).toEqual([2]);
+  });
+
+  it('loads sse log stream chunks by after-sequence edge case', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        [
+          'event: log',
+          'id: 3',
+          'data: {"runId":"run-2","sequence":3,"timestamp":"2026-02-20T00:00:03.000Z","message":"tests queued","level":"info"}',
+          '',
+          'event: end',
+          'data: {"delivered":1}',
+          ''
+        ].join('\n'),
+        { status: 200 }
+      )
+    );
+
+    const client = createApiClient('http://localhost:3100', { role: 'viewer' });
+    const response = await client.getRunLogStream('run-2', 2);
+
+    expect(response.delivered).toBe(1);
+    expect(response.entries[0]?.sequence).toBe(3);
   });
 });

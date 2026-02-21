@@ -146,3 +146,33 @@
 
 ### Result
 - Overall M2-T4 docs parity: PASS.
+
+## M3-T1 Realtime + Reliability Parity Review (2026-02-21)
+
+### Scope
+- Verify docs parity for SSE live-log transport and reconnect cursor behavior.
+
+### Implementation References
+- `apps/api/src/server.ts`
+- `apps/api/src/runReadModels.ts`
+- `apps/api/tests/runs-read.test.ts`
+- `apps/web/src/runtime/apiClient.ts`
+- `apps/web/src/runtime/RuntimeApp.tsx`
+- `apps/web/tests/runtime-api-client.test.ts`
+
+### Documentation References
+- `README.md`
+- `docs/release/local-setup.md`
+
+### Parity Checks
+- SSE endpoint documentation:
+  - Docs now include `GET /runs/:runId/logs/stream?after=<sequence>`.
+  - Implementation exposes this endpoint with cursor validation and SSE event payloads.
+  - Status: PASS.
+- Reconnect cursor semantics:
+  - Docs describe reconnect via `after` sequence cursor.
+  - Web/API implementation and tests validate incremental delivery based on last seen sequence.
+  - Status: PASS.
+
+### Result
+- Overall M3-T1 docs parity: PASS.
